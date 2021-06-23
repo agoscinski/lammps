@@ -20,6 +20,8 @@
 #include "style_kspace.h"      // IWYU pragma: keep
 #include "style_pair.h"        // IWYU pragma: keep
 
+#include "pair_rascal.h"
+
 #include "angle.h"
 #include "atom.h"
 #include "bond.h"
