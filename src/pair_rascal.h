@@ -22,6 +22,11 @@ PairStyle(rascal,PairRASCAL);
 
 #include "pair.h"
 
+#include "rascal/representations/calculator_spherical_invariants.hh"
+#include "rascal/models/sparse_kernels.hh"
+#include "rascal/models/sparse_points.hh"
+#include "rascal/math/utils.hh"
+
 // I think we don't need this if we import h files
 //extern "C" {
 //int quip_lammps_api_version();
@@ -53,6 +58,13 @@ class PairRASCAL : public Pair {
   int n_rascal_file;
   char *quip_string;    // mapping from atom types to elements
   int n_quip_string;
+  std::shared_ptr<rascal::CalculatorSphericalInvariants> calculator{};
+  std::shared_ptr<rascal::SparseKernel> kernel{};
+  rascal::SparsePointsBlockSparse<rascal::CalculatorSphericalInvariants> sparse_points{};
+  //std::vector<double> weights_vec{};
+  rascal::math::Vector_t weights{};
+  std::vector<int> rascal_atom_types{};
+
 };
 
 }    // namespace LAMMPS_NS

@@ -33,13 +33,15 @@
 #include <cmath>
 #include <cstring>
 
-#include "rascal/representations/calculator_spherical_invariants.hh"
-#include "rascal/structure_managers/structure_manager_lammps.hh"
-#include "rascal/structure_managers/structure_manager_centers.hh"
-#include "rascal/structure_managers/make_structure_manager.hh"
-#include "rascal/structure_managers/adaptor_neighbour_list.hh"
-#include "rascal/structure_managers/adaptor_strict.hh"
+#include "rascal/models/sparse_kernel_predict.hh"
 
+#include "rascal/structure_managers/structure_manager_lammps.hh"
+#include "rascal/structure_managers/adaptor_center_contribution.hh"
+#include "rascal/structure_managers/adaptor_strict.hh"
+#include "rascal/structure_managers/make_structure_manager.hh"
+#include "rascal/structure_managers/structure_manager_collection.hh"
+
+#include "rascal/utils/json_io.hh"
 
 
 using namespace LAMMPS_NS;
@@ -124,46 +126,130 @@ void PairRASCAL::compute(int eflag, int vflag)
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
+  std::cout << "list->ghost " << list->ghost << std::endl;
+  //for (int i{0}; i < inum+5; i++) {
+  //  std::cout << "ilist[i]" << ilist[i] << std::endl;
+  //}
 
-  //json hypers;
-  //rascal::CalculatorSphericalInvariants calculator{hypers};
-
-  // would be loaded in the coeff step like this, adaptors
-  //double cutoff{5};
-  //json adaptors;
-  //json ad1{{"name", "AdaptorNeighbourList"},
-  //         {"initialization_arguments", {{"cutoff", cutoff}}}};
-  //json ad1b{{"name", "AdaptorCenterContribution"},
-  //          {"initialization_arguments", {}}};
-  //json ad2{{"name", "AdaptorStrict"},
-  //         {"initialization_arguments", {{"cutoff", cutoff}}}};
-  //adaptors.emplace_back(ad1);
-  //adaptors.emplace_back(ad1b);
-  //adaptors.emplace_back(ad2);
 
   //   int inum, int tot_num, int * ilist,
   //   int * numneigh, int ** firstneigh,
   //   double ** x, double ** f, int * type,
   //   double * eatom, double ** vatom
+  std::cout << "Types : " << type[0] << " " << type[1] << std::endl;
   std::cout << "Creating root manager..." << std::endl;
-  auto manager = rascal::make_structure_manager<rascal::StructureManagerLammps>();
+  auto root_manager = rascal::make_structure_manager<rascal::StructureManagerLammps>();
   std::cout << "Created root manager." << std::endl;
   // & ? needed somewhere
   std::cout << "Update root manager..." << std::endl;
-  manager->update(inum, tot_num, ilist, numneigh, firstneigh, x, f, type, eatom, vatom);
-  //manager->update(inum, tot_num, ilist, numneigh,
-  //               static_cast<int **>(firstneigh), double  **(x), double **(f), type,
-  //               eatom, static_cast<double **>(vatom));
-
+  std::cout << "rascal_atom_types.size() " << rascal_atom_types.size() << std::endl;
+  root_manager->update(inum, tot_num, ilist, numneigh, firstneigh, x, f, type, eatom, vatom, rascal_atom_types);
   std::cout << "Updated root manager." << std::endl;
-  //auto man_cen = rascal::make_structure_manager<rascal::StructureManagerCenters>();
-  // is strict required? rascal::AdaptorStrict
-  //auto man = rascal::stack_adaptors<rascal::StructureManagerLammps>(manager, adaptors);
-  std::cout << "Sucessfully created managers" << std::endl;
-  //for (auto atom : manager) {
+  //for (auto atom : root_manager) {
   //  std::cout << "atom " << atom.get_atom_tag() << " global index "
   //            << atom.get_global_index() << std::endl;
   //}
+  //for (auto atom : root_manager) {
+  //  for (auto pair : atom.pairs()) {
+  //    std::cout << "pair " << atom.get_atom_tag() << " " << pair.get_atom_tag() << std::endl;
+  //  }
+  //}
+  std::cout << std::endl;
+
+  json adaptors_input = {
+      {
+        {"initialization_arguments", {}},
+        {"name", "centercontribution"},
+      },
+      {
+        {"initialization_arguments", {{"cutoff", cutoff}}},
+        {"name", "strict"}
+      }
+  };
+  // make ManagerCollection to use with sparse kernel predict functions
+  auto manager = rascal::stack_adaptors<rascal::StructureManagerLammps, rascal::AdaptorCenterContribution, rascal::AdaptorStrict>(root_manager, adaptors_input);
+  //auto manager = rascal::make_structure_manager<rascal::StructureManagerLammps>();
+  auto managers{rascal::ManagerCollection<rascal::StructureManagerLammps, rascal::AdaptorCenterContribution, rascal::AdaptorStrict>(adaptors_input)};
+  managers.add_structure(manager);
+
+  // alternative solution without ManagerCollection
+  //std::vector<std::shared_ptr<rascal::StructureManagerLammps>> managers{};
+  //managers.push_back(manager);
+
+  std::cout << "Computing representation..." << std::endl;
+  calculator->compute(managers);
+  std::cout << "Computed representation." << std::endl;
+
+  // predict gradient, stress
+
+  //std::cout << "weights_vec " << std::endl;
+  //std::cout << weights_vec.size() << std::endl;
+  //std::cout << std::endl;
+  //std::cout << "weights " << std::endl;
+  //std::cout << weights << std::endl;
+  //// manual
+  rascal::math::Matrix_t KNM{kernel->compute(*calculator, managers, sparse_points)};
+  std::cout << "KNM shape " << KNM.rows() << ", " << KNM.cols() << std::endl;
+  std::cout << "weights shape " << weights.rows() << ", " << weights.cols() << std::endl;
+  rascal::math::Matrix_t energies = KNM * weights.transpose();
+
+  std::string force_name = rascal::compute_sparse_kernel_gradients(
+          *calculator, *kernel, managers, sparse_points, weights);
+
+  // needs some small adaptation
+  //std::string neg_stress_name = rascal::compute_sparse_kernel_neg_stress(
+  //    *calculator, *kernel, managers, sparse_points, weights);
+
+  auto && gradients{*manager->template get_property<
+      rascal::Property<double, 1, rascal::AdaptorStrict<
+   rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>, 1, 3>>(force_name, true)};
+
+  rascal::math::Matrix_t rascal_force = Eigen::Map<const rascal::math::Matrix_t>(
+       gradients.view().data(), manager->size(), 3);
+  std::cout << "rascal_force" << std::endl;
+  std::cout << rascal_force << std::endl;
+  std::cout <<  "nlocal + nghost = " << nlocal << "+" << nghost <<std::endl;
+  for (ii = 0; ii < nlocal; ii++) {
+     for (jj = 0; jj < 3; jj++) {
+        f[ii][jj] +=  rascal_force(ii, jj);
+     }
+  }
+  
+  // TODO(alex) not sure
+  //if (eflag_global) {
+  //  eng_vdwl = quip_energy;
+  //}
+
+  if (eflag_atom) {
+    for (ii = 0; ii < nlocal; ii++) {
+      eatom[ii] = energies(ii);
+    }
+  }
+  
+  //size_t i_center{0};
+  //for (auto manager : managers) {
+  //  rascal::math::Matrix_t ee =
+  //      energies.block(i_center, 0, 1, 1);
+  //  std::cout << "ee shape: " << ee.rows() << ", " << ee.cols() << std::endl;
+
+  //  auto && gradients{*manager->template get_property<
+  //      Property<double, 1, Manager_t, 1, ThreeD>>(force_name, true)};
+  //  rascal::math::Matrix_t ff = Eigen::Map<const math::Matrix_t>(
+  //      gradients.view().data(), manager->size() * ThreeD, 1);
+  //  std::cout << "ff shape: " << ff.rows() << ", " << ff.cols() << std::endl;
+
+  //  auto && neg_stress{
+  //      *manager->template get_property<Property<double, 0, Manager_t, 6>>(
+  //          neg_stress_name, true)};
+  //  rascal::math::Matrix_t ff_stress =
+  //     Eigen::Map<const math::Matrix_t>(neg_stress.view().data(), 6, 1);
+  //  std::cout << "ff_stress shape: " << ff_stress.rows() << ", " << ff_stress.cols() << std::endl;
+
+  //  i_center += manager->size() * ThreeD;
+  //}
+
+
+
 
 
   //auto managers{rascal::ManagerCollection<
@@ -213,10 +299,10 @@ void PairRASCAL::coeff(int narg, char **arg)
   std::cout << "PairRASCAL::coeff start" << std::endl;
   if (!allocated) allocate();
 
-  //int n = atom->ntypes;
-  if (narg != (3))
+  int n = atom->ntypes;
+  if (narg != (3 + n))
     error->all(FLERR,"Number of arguments {} is not correct, "
-                                 "it should be {}", narg, 3);
+                                 "it should be {}", narg, 3 + n);
 
   // ensure I,J args are * *
 
@@ -224,13 +310,71 @@ void PairRASCAL::coeff(int narg, char **arg)
     error->all(FLERR,"Incorrect args for pair coefficients");
 
   rascal_file = utils::strdup(arg[2]);
-  // needed?
+  rascal_atom_types.reserve(n);
+  for (int i=0; i<n; i++) {
+    rascal_atom_types.emplace_back(std::atoi(arg[i+3]));
+    std::cout << "rascal_atom_types " << rascal_atom_types[i] << std::endl;
+  }
+
+
+  // needed? TODO(alex)
   n_rascal_file = strlen(rascal_file);
   //quip_string = utils::strdup(arg[3]);
   //n_quip_file = strlen(quip_file);
   //n_quip_string = strlen(quip_string);
 
-  // here we load model file
+  // here we load model file TODO(alex) should be within rascal with a function load_rascal_model(filename)
+  json input = rascal::json_io::load(rascal_file);
+  std::cout << "input loaded" << std::endl;
+  json init_params = input.at("init_params").template get<json>();
+  std::cout << "init_params" << std::endl;
+  json X_train = init_params.at("X_train").template get<json>();
+  std::cout << "X_train" << std::endl;
+
+  // sparse points
+  json sparse_data = X_train.at("data").template get<json>();
+  json sparse_input = sparse_data.at("sparse_points").template get<json>();
+  //sparse_points = rascal::SparsePointsBlockSparse<rascal::CalculatorSphericalInvariants>();
+  rascal::from_json(sparse_input, sparse_points);
+
+  // calculator
+  json X_train_init_params = X_train.at("init_params").template get<json>();
+  json representation = X_train_init_params.at("representation").template get<json>();
+  json representation_init_params = representation.at("init_params").template get<json>();
+  calculator = std::make_shared<rascal::CalculatorSphericalInvariants>(representation_init_params);
+
+  // kernel
+  json kernel_params = init_params.at("kernel").template get<json>();
+  json kernel_init_params = kernel_params.at("init_params").template get<json>();
+  kernel = std::make_shared<rascal::SparseKernel>(kernel_init_params);
+
+  // weights
+  std::vector<double> weights_vec = init_params.at("weights").template get<json>().at(1).template get<std::vector<double>>();
+  // TODO(alex) I think does copy, but double check
+  weights = Eigen::Map<rascal::math::Vector_t>(weights_vec.data(), static_cast<long int>(weights_vec.size()));
+
+  // cutoff
+  cutoff = representation_init_params.at("cutoff_function").template get<json>().at("cutoff").template get<json>().at("value").template get<double>();
+
+  // clear setflag since coeff() called once with I,J = * *
+
+  for (int i = 1; i <= n; i++)
+    for (int j = i; j <= n; j++)
+      setflag[i][j] = 0;
+
+  // set setflag i,j for type pairs where both are mapped to elements
+
+  int count = 0;
+  for (int i = 1; i <= n; i++)
+    for (int j = i; j <= n; j++)
+      if (map[i] >= 0 && map[j] >= 0) {
+        setflag[i][j] = 1;
+        count++;
+      }
+
+  if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
+
+
   //json input{read_json(rascal_file)}; // check this line
   //json adaptors_input = input.at("adaptors").template get<json>();
   //json calculator_input = input.at("calculator").template get<json>();
@@ -275,6 +419,6 @@ void PairRASCAL::init_style()
 double PairRASCAL::init_one(int /*i*/, int /*j*/)
 {
   std::cout << "PairRASCAL::init_one start" << std::endl;
-  return 5;
+  return cutoff;
   std::cout << "PairRASCAL::init_one end" << std::endl;
 }
