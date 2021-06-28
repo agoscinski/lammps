@@ -27,6 +27,11 @@ PairStyle(rascal,PairRASCAL);
 #include "rascal/models/sparse_points.hh"
 #include "rascal/math/utils.hh"
 
+#include "rascal/structure_managers/structure_manager_lammps.hh"
+#include "rascal/structure_managers/adaptor_center_contribution.hh"
+#include "rascal/structure_managers/adaptor_strict.hh"
+#include "rascal/structure_managers/make_structure_manager.hh"
+#include "rascal/structure_managers/structure_manager_collection.hh"
 // I think we don't need this if we import h files
 //extern "C" {
 //int quip_lammps_api_version();
@@ -63,7 +68,10 @@ class PairRASCAL : public Pair {
   rascal::SparsePointsBlockSparse<rascal::CalculatorSphericalInvariants> sparse_points{};
   //std::vector<double> weights_vec{};
   rascal::math::Vector_t weights{};
-  std::vector<int> rascal_atom_types{};
+  std::vector<int> rascal_atom_types{}; 
+  //std::shared_ptr<rascal::StructureManagerLammps> root_manager{rascal::make_structure_manager<rascal::StructureManagerLammps>()};
+  //std::shared_ptr<rascal::StructureManager<rascal::StructureManagerLammps<rascal::AdaptorCenterContribution<rascal::AdaptorStrict>>>>{};
+  rascal::ManagerCollection<rascal::StructureManagerLammps, rascal::AdaptorCenterContribution, rascal::AdaptorStrict> managers{};
 
 };
 

@@ -5,7 +5,7 @@ boundary	p p p
 
 atom_style	atomic
 
-read_data	methane_dimer_sample.lammps
+read_data	methane_pbc.lammps
 
 pair_style	rascal
 pair_coeff	* * simple_gap_model.json 1 6
