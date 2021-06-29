@@ -100,13 +100,18 @@ void PairRASCAL::compute(int eflag, int vflag)
   int *ilist;
   int *jlist;
   int *numneigh, **firstneigh;
-  int *quip_num_neigh, *quip_neigh, *atomic_numbers;
 
   int nlocal = atom->nlocal;
   int nghost = atom->nghost;
   int ntotal = nlocal + nghost;
   int *type = atom->type;
-  tagint *tag = atom->tag;
+  // TODO(alex) should be properly handeled
+  // tagint can be also int or int64_t depending on compile flags see LAMMPS_BIGBIG
+  int *tag = atom->tag;
+  //std::cout << "sizeof(tagint)" << sizeof(tagint) << std::endl;
+  //for (int i{0}; i < ntotal; i++) {
+  //  std::cout << "atom->tag[i] " << (int) atom->tag[i] << std::endl;
+  //}
 
   double **x = atom->x;
   double **f = atom->f;
@@ -121,8 +126,10 @@ void PairRASCAL::compute(int eflag, int vflag)
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
   std::cout << "list->ghost " << list->ghost << std::endl;
-  //for (int i{0}; i < inum+5; i++) {
-  //  std::cout << "ilist[i]" << ilist[i] << std::endl;
+  //for (int i{0}; i < nlocal; i++) {
+  //  for (int j{0}; j < numneigh[i]; j++) {
+  //    std::cout << "ilist[i] (" << ilist[i] << ", " << firstneigh[i][j] << ")" << std::endl;
+  //  }
   //}
 
 
@@ -136,8 +143,8 @@ void PairRASCAL::compute(int eflag, int vflag)
   //// & ? needed somewhere
   //std::cout << "Update root manager..." << std::endl;
   //std::cout << "rascal_atom_types.size() " << rascal_atom_types.size() << std::endl;
-  auto root_manager = rascal::make_structure_manager<rascal::StructureManagerLammps>();
-  root_manager->update(inum, tot_num, ilist, numneigh, firstneigh, x, f, type, eatom, vatom, rascal_atom_types);
+  //auto root_manager = rascal::make_structure_manager<rascal::StructureManagerLammps>();
+  //root_manager->update(inum, tot_num, ilist, numneigh, firstneigh, x, f, type, eatom, vatom, rascal_atom_types, tag);
   //std::cout << "Updated root manager." << std::endl;
   //for (auto atom : root_manager->with_ghosts()) {
   //  std::cout << "atom " << atom.get_atom_tag() << " global index "
@@ -166,11 +173,11 @@ void PairRASCAL::compute(int eflag, int vflag)
   //auto managers{rascal::ManagerCollection<rascal::StructureManagerLammps, rascal::AdaptorCenterContribution, rascal::AdaptorStrict>(adaptors_input)};
   //managers.add_structure(manager);
   std::shared_ptr<rascal::AdaptorStrict<rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>> manager = *managers.begin();
-  manager->update(inum, tot_num, ilist, numneigh, firstneigh, x, f, type, eatom, vatom, rascal_atom_types);
+  manager->update(inum, tot_num, ilist, numneigh, firstneigh, x, f, type, eatom, vatom, rascal_atom_types, tag);
   for (auto atom : manager->with_ghosts()) {
       std::cout << " center " << atom.get_atom_tag() << std::endl;
     for (auto pair : atom.pairs_with_self_pair()) {
-      std::cout << "strict pair (" << atom.get_atom_tag() << ", "
+      std::cout << "pair (" << atom.get_atom_tag() << ", "
                 << pair.get_atom_tag() << ") global index "
                 << pair.get_global_index() << std::endl;
     }
