@@ -126,52 +126,7 @@ void PairRASCAL::compute(int eflag, int vflag)
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
   std::cout << "list->ghost " << list->ghost << std::endl;
-  //for (int i{0}; i < nlocal; i++) {
-  //  for (int j{0}; j < numneigh[i]; j++) {
-  //    std::cout << "ilist[i] (" << ilist[i] << ", " << firstneigh[i][j] << ")" << std::endl;
-  //  }
-  //}
 
-
-  //   int inum, int tot_num, int * ilist,
-  //   int * numneigh, int ** firstneigh,
-  //   double ** x, double ** f, int * type,
-  //   double * eatom, double ** vatom
-  //std::cout << "Types : " << type[0] << " " << type[1] << std::endl;
-  //std::cout << "Creating root manager..." << std::endl;
-  //std::cout << "Created root manager." << std::endl;
-  //// & ? needed somewhere
-  //std::cout << "Update root manager..." << std::endl;
-  //std::cout << "rascal_atom_types.size() " << rascal_atom_types.size() << std::endl;
-  //auto root_manager = rascal::make_structure_manager<rascal::StructureManagerLammps>();
-  //root_manager->update(inum, tot_num, ilist, numneigh, firstneigh, x, f, type, eatom, vatom, rascal_atom_types, tag);
-  //std::cout << "Updated root manager." << std::endl;
-  //for (auto atom : root_manager->with_ghosts()) {
-  //  std::cout << "atom " << atom.get_atom_tag() << " global index "
-  //            << atom.get_global_index() << std::endl;
-  //}
-  ////for (auto atom : root_manager) {
-  ////  for (auto pair : atom.pairs()) {
-  ////    std::cout << "pair " << atom.get_atom_tag() << " " << pair.get_atom_tag() << std::endl;
-  ////  }
-  ////}
-  //std::cout << std::endl;
-
-  //json adaptors_input = {
-  //    {
-  //      {"initialization_arguments", {}},
-  //      {"name", "centercontribution"},
-  //    },
-  //    {
-  //      {"initialization_arguments", {{"cutoff", cutoff}}},
-  //      {"name", "strict"}
-  //    }
-  //};
-  //// make ManagerCollection to use with sparse kernel predict functions
-  //auto manager = rascal::stack_adaptors<rascal::StructureManagerLammps, rascal::AdaptorCenterContribution, rascal::AdaptorStrict>(root_manager, adaptors_input);
-  ////auto manager = rascal::make_structure_manager<rascal::StructureManagerLammps>();
-  //auto managers{rascal::ManagerCollection<rascal::StructureManagerLammps, rascal::AdaptorCenterContribution, rascal::AdaptorStrict>(adaptors_input)};
-  //managers.add_structure(manager);
   std::shared_ptr<rascal::AdaptorStrict<rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>> manager = *managers.begin();
   manager->update(inum, tot_num, ilist, numneigh, firstneigh, x, f, type, eatom, vatom, rascal_atom_types, tag);
   for (auto atom : manager->with_ghosts()) {
@@ -192,12 +147,12 @@ void PairRASCAL::compute(int eflag, int vflag)
 
   //// predict gradient, stress
 
-  ////std::cout << "weights_vec " << std::endl;
-  ////std::cout << weights_vec.size() << std::endl;
-  ////std::cout << std::endl;
-  ////std::cout << "weights " << std::endl;
-  ////std::cout << weights << std::endl;
-  ////// manual
+  //std::cout << "weights_vec " << std::endl;
+  //std::cout << weights_vec.size() << std::endl;
+  //std::cout << std::endl;
+  //std::cout << "weights " << std::endl;
+  //std::cout << weights << std::endl;
+  //// manual
   rascal::math::Matrix_t KNM{kernel->compute(*calculator, managers, sparse_points)};
   std::cout << "KNM shape " << KNM.rows() << ", " << KNM.cols() << std::endl;
   std::cout << "weights shape " << weights.rows() << ", " << weights.cols() << std::endl;
@@ -260,17 +215,6 @@ void PairRASCAL::compute(int eflag, int vflag)
 
   //  i_center += manager->size() * ThreeD;
   //}
-
-
-
-
-
-  //auto managers{rascal::ManagerCollection<
-  //                                 rascal::StructureManagerLammps,
-  //                                 rascal::AdaptorNeighbourList,
-  //                                   rascal::AdaptorCenterContribution
-  //                                 rascal::AdaptorStrict>(adaptors)};
-  //managers
   std::cout << "PairRASCAL::compute end" << std::endl;
 }
 
@@ -332,9 +276,6 @@ void PairRASCAL::coeff(int narg, char **arg)
 
   // needed? TODO(alex)
   n_rascal_file = strlen(rascal_file);
-  //quip_string = utils::strdup(arg[3]);
-  //n_quip_file = strlen(quip_file);
-  //n_quip_string = strlen(quip_string);
 
   // here we load model file TODO(alex) should be within rascal with a function load_rascal_model(filename)
   json input = rascal::json_io::load(rascal_file);
@@ -388,33 +329,8 @@ void PairRASCAL::coeff(int narg, char **arg)
   if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
 
 
-  //json input{read_json(rascal_file)}; // check this line
-  //json adaptors_input = input.at("adaptors").template get<json>();
-  //json calculator_input = input.at("calculator").template get<json>();
-  //json kernel_input = input.at("kernel").template get<json>();
-  //auto selected_ids = input.at("selected_ids")
-  //                        .template get<std::vector<std::vector<int>>>();
-
-  //// rascal initalize model
-  //Kernel_t kernel{kernel_input};
-  //kernel_input.at("target_type") = "Atom";
-  //Kernel_t kernel_num{kernel_input};
-  //SparsePoints_t sparse_points{};
-  //Representation_t representation{calculator_input};
-  //// load structures, compute representation and fill sparse points
-  //// This requires an equivalent for StructureManagerLammps input 
-  ////managers.add_structures(filename, 0,
-  ////                        input.at("n_structures").template get<int>());
-  //// requires fnu
-  ////sparse_points.push_back(representation, managers, selected_ids);
-  //calculator_input["compute_gradients"] = false;
-  //Representation_t representation_{calculator_input};
-
-  // ManagerCollection_t managers{adaptors_input};
 
   auto root_manager = rascal::make_structure_manager<rascal::StructureManagerLammps>();
-  //auto neigh_manager{make_adapted_manager<rascal::AdaptorCenterContribution>(strict_manager)};
-  //auto strict_manager{make_adapted_manager<rascal::AdaptorStrict>(strict_manager)};
 
   json adaptors_input = {
       {
@@ -426,9 +342,6 @@ void PairRASCAL::coeff(int narg, char **arg)
         {"name", "strict"}
       }
   };
-  // make ManagerCollection to use with sparse kernel predict functions
-  //manager = rascal::stack_adaptors<rascal::StructureManagerLammps, rascal::AdaptorCenterContribution, rascal::AdaptorStrict>(root_manager, adaptors_input);
-  //auto manager = rascal::make_structure_manager<rascal::StructureManagerLammps>();
   auto manager = rascal::stack_adaptors<rascal::StructureManagerLammps, rascal::AdaptorCenterContribution, rascal::AdaptorStrict>(root_manager, adaptors_input);
   managers = rascal::ManagerCollection<rascal::StructureManagerLammps, rascal::AdaptorCenterContribution, rascal::AdaptorStrict>(adaptors_input);
 
