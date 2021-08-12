@@ -1,0 +1,25 @@
+# Test of GAP potential for Si system
+
+units		metal
+boundary	p p p
+
+atom_style	atomic
+
+neighbor 0.0 bin
+
+read_data	h2.lammps
+
+pair_style rascal
+pair_coeff * * h2_model.json 1
+#pair_style lj/cut 2.5
+#pair_coeff * * 1 1
+
+minimize   1.0e-8 1.0e-8 20 20
+min_style cg
+
+dump		        1 all xyz 1 h2_min.output
+dump_modify     1 first yes sort id element H format line "%s %0.6f %0.6f %0.6f"
+
+write_data h2_min_f.output
+
+run		0
