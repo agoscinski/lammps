@@ -78,7 +78,6 @@ PairRASCAL::PairRASCAL(LAMMPS *lmp) : Pair(lmp)
   centroidstressflag = CENTROID_NOTAVAIL;
 
   map = nullptr;
-  quip_potential = nullptr;
   rascal_file = nullptr;
 }
 
@@ -89,14 +88,13 @@ PairRASCAL::~PairRASCAL()
     memory->destroy(cutsq);
     delete [] map;
   }
-  delete [] quip_potential;
   delete [] rascal_file;
 }
 
 void PairRASCAL::compute(int eflag, int vflag)
 {
   std::cout << "PairRASCAL::compute start" << std::endl;
-  int inum, jnum, sum_num_neigh, ii, jj, i, iquip;
+  int inum, jnum, sum_num_neigh, ii, jj, i;
   int *ilist;
   int *jlist;
   int *numneigh, **firstneigh;
@@ -125,25 +123,97 @@ void PairRASCAL::compute(int eflag, int vflag)
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
-  std::cout << "list->ghost " << list->ghost << std::endl;
+  //std::cout << "list->ghost " << list->ghost << std::endl;
+  //std::cout << "list->firstneigh" << std::endl;
+  //for (int i=0; i < inum; i++) {
+  //  for (int j=0; j < numneigh[i]; j++) {
+  //    std::cout << list->firstneigh[i][j] << ", ";
+  //  }
+  //  std::cout <<  std::endl;
+  //}
+  //std::cout <<  std::endl;
 
   std::shared_ptr<rascal::AdaptorStrict<rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>> manager = *managers.begin();
   manager->update(inum, tot_num, ilist, numneigh, firstneigh, x, f, type, eatom, vatom, rascal_atom_types, tag);
-  for (auto atom : manager->with_ghosts()) {
-      std::cout << " center " << atom.get_atom_tag() << std::endl;
-    for (auto pair : atom.pairs_with_self_pair()) {
-      std::cout << "pair (" << atom.get_atom_tag() << ", "
-                << pair.get_atom_tag() << ") global index "
-                << pair.get_global_index() << std::endl;
+
+  //  std::cout << "manager->offsets ";
+  //  std::cout << std::endl;
+  //  for (int k=0; k < manager->offsets.size(); k++) {
+  //     for (auto p=0; p < manager->offsets[k].size(); p++) {
+  //       std::cout << manager->offsets[k][p] << ", ";
+  //     }
+  //     std::cout << std::endl;
+  //  }
+  //  std::cout << std::endl;
+
+  //  std::cout << "manager->nb_neigh ";
+  //  std::cout << std::endl;
+  //  for (int k=0; k < manager->nb_neigh.size(); k++) {
+  //     for (auto p=0; p < manager->nb_neigh[k].size(); p++) {
+  //       std::cout << manager->nb_neigh[k][p] << ", ";
+  //     }
+  //     std::cout << std::endl;
+  //  }
+  //  std::cout << std::endl;
+
+  //  std::cout << "manager->atom_tag_list ";
+  //  std::cout << std::endl;
+  //  for (int k=0; k < manager->atom_tag_list.size(); k++) {
+  //     for (auto p=0; p < manager->atom_tag_list[k].size(); p++) {
+  //       std::cout << manager->atom_tag_list[k][p] << ", ";
+  //     }
+  //     std::cout << std::endl;
+  //  }
+  //  std::cout << std::endl;
+  //  
+  //  std::cout << "manager->neighbours_cluster_index ";
+  //  std::cout << std::endl;
+  //  for (int k=0; k < manager->neighbours_cluster_index.size(); k++) {
+  //     std::cout << manager->neighbours_cluster_index[k] << ", ";
+  //  }
+  //  std::cout << std::endl;
+
+  //for (auto atom : manager->with_ghosts()) {
+  //    std::cout << " center " << atom.get_atom_tag() << std::endl;
+  //  for (auto pair : atom.pairs_with_self_pair()) {
+  //    std::cout << "pair (" << atom.get_atom_tag() << ", "
+  //              << pair.get_atom_tag() << ") global index "
+  //              << pair.get_global_index() << std::endl;
+  //  }
+  //}
+  //std::cout << std::endl;
+  //for (auto atom : manager) {
+  //    std::cout << "center atom tag " << atom.get_atom_tag() << std::endl;
+  //    std::cout << "center cluster index " << atom.get_cluster_index() << std::endl;
+  //  for (auto pair : atom.pairs()) {
+  //    std::cout << "  pair (" << atom.get_atom_tag() << ", "
+  //              << pair.get_atom_tag() << ") global index "
+  //              << pair.get_global_index() << std::endl;
+  //  }
+  //}
+  std::cout << std::endl;
+  for (auto atom : manager) {
+    for (auto pair : atom.pairs()) {
+      std::cout << "pair dist " << manager->get_distance(pair) 
+                << std::endl;
+      std::cout << "direction vector " << manager->get_direction_vector(pair).transpose()
+                << std::endl;
     }
   }
-
-
-
+  std::cout << std::endl;
 
   std::cout << "Computing representation..." << std::endl;
   calculator->compute(managers);
   std::cout << "Computed representation." << std::endl;
+  auto && expansions_coefficients{*manager->template get_property<rascal::CalculatorSphericalInvariants::template Property_t<rascal::AdaptorStrict<
+   rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>>>(
+    calculator->get_name())};
+  
+  //for (auto atom : manager) {
+  //  std::cout << expansions_coefficients[atom].get_full_vector().transpose() << std::endl;
+  //}
+
+
 
   //// predict gradient, stress
 
@@ -156,7 +226,9 @@ void PairRASCAL::compute(int eflag, int vflag)
   rascal::math::Matrix_t KNM{kernel->compute(*calculator, managers, sparse_points)};
   std::cout << "KNM shape " << KNM.rows() << ", " << KNM.cols() << std::endl;
   std::cout << "weights shape " << weights.rows() << ", " << weights.cols() << std::endl;
+  // is this total energy?
   rascal::math::Matrix_t energies = KNM * weights.transpose();
+  //std::cout << weights << std::endl;
 
   std::cout << "compute_sparse_kernel_gradients" << std::endl;
   std::string force_name = rascal::compute_sparse_kernel_gradients(
@@ -177,21 +249,49 @@ void PairRASCAL::compute(int eflag, int vflag)
   std::cout << "rascal_force" << std::endl;
   std::cout << rascal_force << std::endl;
   std::cout <<  "nlocal + nghost = " << nlocal << "+" << nghost <<std::endl;
+ std::cout << "lammps force" << std::endl;
   for (ii = 0; ii < nlocal; ii++) {
      for (jj = 0; jj < 3; jj++) {
-        f[ii][jj] +=  rascal_force(ii, jj);
+        f[ii][jj] -=  rascal_force(ii, jj);
+        std::cout << f[ii][jj] << ", "; 
      }
+     std::cout << std::endl;
   }
-  
-  // TODO(alex) not sure
-  //if (eflag_global) {
-  //  eng_vdwl = quip_energy;
-  //}
+   std::cout << std::endl;
+  std::cout << "energies " << energies.rows() << " " << energies.cols() << std::endl;
+  std::cout << energies << std::endl;
+
+  std::cout << "eflag_global " << eflag_global << std::endl;
+  if (eflag_global) {
+    eng_vdwl = energies(0,0);
+  }
 
   if (eflag_atom) {
-    for (ii = 0; ii < nlocal; ii++) {
-      eatom[ii] = energies(ii);
+    for (ii = 0; ii < ntotal; ii++) {
+      eatom[ii] = energies(0,0)/ntotal;
     }
+  }
+  
+  if (vflag_global) {
+      virial[0] = 1;
+      virial[1] = 1;
+      virial[2] = 1;
+      virial[3] = 1;
+      virial[4] = 1;
+      virial[5] = 1;
+  }
+
+  if (vflag_atom) {
+    int iatom = 0;
+     for (ii = 0; ii < ntotal; ii++) {
+       vatom[ii][0] += 0.5; 
+       vatom[ii][1] += 0.5; 
+       vatom[ii][2] += 0.5; 
+       vatom[ii][3] += 0.5; 
+       vatom[ii][4] += 0.5; 
+       vatom[ii][5] += 0.5; 
+       iatom += 9;
+     }
   }
   
   //size_t i_center{0};
@@ -317,7 +417,6 @@ void PairRASCAL::coeff(int narg, char **arg)
       setflag[i][j] = 0;
 
   // set setflag i,j for type pairs where both are mapped to elements
-
   int count = 0;
   for (int i = 1; i <= n; i++)
     for (int j = i; j <= n; j++)
@@ -327,7 +426,6 @@ void PairRASCAL::coeff(int narg, char **arg)
       }
 
   if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
-
 
 
   auto root_manager = rascal::make_structure_manager<rascal::StructureManagerLammps>();
@@ -360,14 +458,14 @@ void PairRASCAL::init_style()
 
   // Initialise neighbor list
   int irequest_full = neighbor->request(this);
-  neighbor->requests[irequest_full]->half = 0;
-  neighbor->requests[irequest_full]->full = 1;
+  neighbor->requests[irequest_full]->half = 1;
+  neighbor->requests[irequest_full]->full = 0;
   std::cout << "PairRASCAL::init_style end" << std::endl;
 }
 
 double PairRASCAL::init_one(int /*i*/, int /*j*/)
 {
-  std::cout << "PairRASCAL::init_one start" << std::endl;
+  std::cout << "PairRASCAL::init_one start with cutoff " << cutoff << std::endl;
   return cutoff;
   std::cout << "PairRASCAL::init_one end" << std::endl;
 }

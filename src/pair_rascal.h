@@ -56,13 +56,9 @@ class PairRASCAL : public Pair {
 
  private:
   double cutoff;
-  int *quip_potential;
-  int n_quip_potential;
   int *map;           // mapping from atom types to elements
   char *rascal_file;    // mapping from atom types to elements
   int n_rascal_file;
-  char *quip_string;    // mapping from atom types to elements
-  int n_quip_string;
   std::shared_ptr<rascal::CalculatorSphericalInvariants> calculator{};
   std::shared_ptr<rascal::SparseKernel> kernel{};
   rascal::SparsePointsBlockSparse<rascal::CalculatorSphericalInvariants> sparse_points{};

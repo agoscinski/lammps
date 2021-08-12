@@ -5123,7 +5123,7 @@
           "init_params": {
             "compute_gradients": true,
             "cutoff_function": {
-              "cutoff": {"unit": "AA", "value": 2.5},
+              "cutoff": {"unit": "AA", "value": 7.5},
               "exponent": {"unit": "AA", "value": 4},
               "rate": {"unit": "AA", "value": 1},
               "scale": {"unit": "AA", "value": 4.5},
@@ -5184,7 +5184,7 @@
             "gaussian_sigma_constant": 0.5,
             "gaussian_sigma_type": "Constant",
             "global_species": [],
-            "interaction_cutoff": 2.5,
+            "interaction_cutoff": 7.5,
             "inversion_symmetry": true,
             "max_angular": 2,
             "max_radial": 4,
