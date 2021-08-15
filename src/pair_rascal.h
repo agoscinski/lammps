@@ -42,6 +42,11 @@ PairStyle(rascal,PairRASCAL);
 
 namespace LAMMPS_NS {
 
+// 0 info (no addiditional log to lammps)
+// 1 debug (force and energy calculation of rascal)
+// 2 trace (neighbourlist of rascal)
+enum class RASCAL_LOG { INFO = 0, DEBUG = 1, TRACE = 2 };
+
 class PairRASCAL : public Pair {
  public:
   PairRASCAL(class LAMMPS *);
@@ -58,7 +63,7 @@ class PairRASCAL : public Pair {
   double cutoff;
   int *map;           // mapping from atom types to elements
   char *rascal_file;    // mapping from atom types to elements
-  int n_rascal_file;
+  RASCAL_LOG log_level;
   std::shared_ptr<rascal::CalculatorSphericalInvariants> calculator{};
   std::shared_ptr<rascal::SparseKernel> kernel{};
   rascal::SparsePointsBlockSparse<rascal::CalculatorSphericalInvariants> sparse_points{};

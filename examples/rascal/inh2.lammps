@@ -1,4 +1,4 @@
-# Test of GAP potential for Si system
+# Test of rascal potential for H2 structure
 
 units		metal
 boundary	p p p
@@ -10,11 +10,19 @@ neighbor 0.0 bin
 read_data	h2.lammps
 
 pair_style rascal
-pair_coeff * * h2_model.json 1
-#pair_style lj/cut 2.5
+# * * {LOG_LEVEL} {RASCAL_MODEL_NAME} {list all atom types occurring in structure file...}
+# LOG_LEVEL = {info|debug|trace}
+#   info: no additional output to the standard lammps one
+#   debug: prints outputs of the energy and force caluculation of rascal
+#   trace: prints all available information including neighborlist information
+pair_coeff * * trace h2_model.json 1
+
+# if you get a bug  with the rascal potential, please check before with some simple
+# potential if the bug does not come from an ill-defined simulation
+#pair_style lj/cut 2.0 # !set cutoff to the same value as your rascal potential
 #pair_coeff * * 1 1
 
-minimize   1.0e-8 1.0e-8 20 20
+minimize   1.0e-8 1.0e-8 1 1
 min_style cg
 
 dump		        1 all xyz 1 h2_min.output

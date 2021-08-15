@@ -70,6 +70,7 @@ static constexpr const char *const cite_openkim =
 
 PairRASCAL::PairRASCAL(LAMMPS *lmp) : Pair(lmp)
 {
+  // COMMENT(alex) copy from quip, havent understood this yet
   single_enable = 0;
   restartinfo = 0;
   one_coeff = 1;
@@ -93,7 +94,8 @@ PairRASCAL::~PairRASCAL()
 
 void PairRASCAL::compute(int eflag, int vflag)
 {
-  std::cout << "PairRASCAL::compute start" << std::endl;
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "PairRASCAL::compute start" << std::endl;
   int inum, jnum, sum_num_neigh, ii, jj, i;
   int *ilist;
   int *jlist;
@@ -115,6 +117,8 @@ void PairRASCAL::compute(int eflag, int vflag)
   double **f = atom->f;
 
   int const tot_num = atom->nlocal + atom->nghost;
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout <<  "Lammps number of neighbours: nlocal + nghost = " << nlocal << "+" << nghost <<std::endl;
 
   // seems to be lammps intern
   ev_init(eflag,vflag);
@@ -125,197 +129,213 @@ void PairRASCAL::compute(int eflag, int vflag)
   firstneigh = list->firstneigh;
   //std::cout << "list->ghost " << list->ghost << std::endl;
   //std::cout << "list->firstneigh" << std::endl;
-  //for (int i=0; i < inum; i++) {
-  //  for (int j=0; j < numneigh[i]; j++) {
-  //    std::cout << list->firstneigh[i][j] << ", ";
-  //  }
-  //  std::cout <<  std::endl;
-  //}
-  //std::cout <<  std::endl;
+
+  if (this->log_level >= RASCAL_LOG::TRACE) {
+    std::cout << std::endl;
+    std::cout << "Lammps position list:\n";
+    for (int i=0; i < tot_num ; i++) {
+      std::cout << "center " << i << ", lammps atom tag " << atom->tag[i] << ", ";
+      std::cout <<"position ";
+      for (int j=0; j < 3; j++) {
+        std::cout << atom->x[i][j] << " ";
+      }
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
+
+    std::cout << "Lammps neighbor list:\n";
+    for (int i=0; i < inum; i++) {
+      std::cout << "center " << list->ilist[i] << ", ";
+      std::cout <<"position ";
+      for (int p=0; p < 3; p++) {
+        std::cout << atom->x[p][p] << " ";
+      }
+      std::cout << std::endl;
+      for (int j=0; j < numneigh[i]; j++) {
+        std::cout << "  neigh " << list->firstneigh[i][j] << ", position ";
+        for (int p=0; p < 3; p++) {
+          std::cout << atom->x[list->firstneigh[i][j]][p] << " ";
+        }
+        std::cout << std::endl;
+      }
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
+  }
 
   std::shared_ptr<rascal::AdaptorStrict<rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>> manager = *managers.begin();
   manager->update(inum, tot_num, ilist, numneigh, firstneigh, x, f, type, eatom, vatom, rascal_atom_types, tag);
 
-  //  std::cout << "manager->offsets ";
-  //  std::cout << std::endl;
-  //  for (int k=0; k < manager->offsets.size(); k++) {
-  //     for (auto p=0; p < manager->offsets[k].size(); p++) {
-  //       std::cout << manager->offsets[k][p] << ", ";
-  //     }
-  //     std::cout << std::endl;
-  //  }
-  //  std::cout << std::endl;
+  if (this->log_level >= RASCAL_LOG::TRACE) {
+      std::cout << "manager->offsets\n";
+      for (int k=0; k < manager->offsets.size(); k++) {
+         for (int p=0; p < manager->offsets[k].size(); p++) {
+           std::cout << manager->offsets[k][p] << ", ";
+         }
+         std::cout << "\n";
+      }
+      std::cout << std::endl;
 
-  //  std::cout << "manager->nb_neigh ";
-  //  std::cout << std::endl;
-  //  for (int k=0; k < manager->nb_neigh.size(); k++) {
-  //     for (auto p=0; p < manager->nb_neigh[k].size(); p++) {
-  //       std::cout << manager->nb_neigh[k][p] << ", ";
-  //     }
-  //     std::cout << std::endl;
-  //  }
-  //  std::cout << std::endl;
+      std::cout << "manager->nb_neigh\n";
+      for (int k=0; k < manager->nb_neigh.size(); k++) {
+         for (int p=0; p < manager->nb_neigh[k].size(); p++) {
+           std::cout << manager->nb_neigh[k][p] << ", ";
+         }
+         std::cout << "\n";
+      }
+      std::cout << std::endl;
 
-  //  std::cout << "manager->atom_tag_list ";
-  //  std::cout << std::endl;
-  //  for (int k=0; k < manager->atom_tag_list.size(); k++) {
-  //     for (auto p=0; p < manager->atom_tag_list[k].size(); p++) {
-  //       std::cout << manager->atom_tag_list[k][p] << ", ";
-  //     }
-  //     std::cout << std::endl;
-  //  }
-  //  std::cout << std::endl;
-  //  
-  //  std::cout << "manager->neighbours_cluster_index ";
-  //  std::cout << std::endl;
-  //  for (int k=0; k < manager->neighbours_cluster_index.size(); k++) {
-  //     std::cout << manager->neighbours_cluster_index[k] << ", ";
-  //  }
-  //  std::cout << std::endl;
+      std::cout << "manager->atom_tag_list\n";
+      for (int k=0; k < manager->atom_tag_list.size(); k++) {
+         for (int p=0; p < manager->atom_tag_list[k].size(); p++) {
+           std::cout << manager->atom_tag_list[k][p] << ", ";
+         }
+         std::cout << "\n";
+      }
+      std::cout << std::endl;
+      
+      std::cout << "manager->neighbours_cluster_index\n";
+      for (int k=0; k < manager->neighbours_cluster_index.size(); k++) {
+         std::cout << manager->neighbours_cluster_index[k] << ", ";
+      }
+      std::cout << std::endl;
 
-  //for (auto atom : manager->with_ghosts()) {
-  //    std::cout << " center " << atom.get_atom_tag() << std::endl;
-  //  for (auto pair : atom.pairs_with_self_pair()) {
-  //    std::cout << "pair (" << atom.get_atom_tag() << ", "
-  //              << pair.get_atom_tag() << ") global index "
-  //              << pair.get_global_index() << std::endl;
-  //  }
-  //}
-  //std::cout << std::endl;
-  //for (auto atom : manager) {
-  //    std::cout << "center atom tag " << atom.get_atom_tag() << std::endl;
-  //    std::cout << "center cluster index " << atom.get_cluster_index() << std::endl;
-  //  for (auto pair : atom.pairs()) {
-  //    std::cout << "  pair (" << atom.get_atom_tag() << ", "
-  //              << pair.get_atom_tag() << ") global index "
-  //              << pair.get_global_index() << std::endl;
-  //  }
-  //}
-  std::cout << std::endl;
-  for (auto atom : manager) {
-    for (auto pair : atom.pairs()) {
-      std::cout << "pair dist " << manager->get_distance(pair) 
-                << std::endl;
-      std::cout << "direction vector " << manager->get_direction_vector(pair).transpose()
-                << std::endl;
-    }
+      std::cout << "neighbor list without ghosts\n";
+      for (auto atom : manager) {
+          std::cout << "center atom tag " << atom.get_atom_tag() << ", "
+                    << "cluster index " << atom.get_cluster_index()
+                    << std::endl;
+        for (auto pair : atom.pairs_with_self_pair()) {
+          std::cout << "  pair (" << atom.get_atom_tag() << ", "
+                    << pair.get_atom_tag() << "): " 
+                    << "global index " << pair.get_global_index() << ", "
+                    << "pair dist " << manager->get_distance(pair)  << ", " 
+                    << "direction vector " << manager->get_direction_vector(pair).transpose()
+                    << std::endl;
+        }
+      }
+      std::cout << std::endl;
+
+      std::cout << "neighbor list with ghosts\n";
+      for (auto atom : manager->with_ghosts()) {
+        std::cout << "center atom tag " << atom.get_atom_tag() << ", "
+                  << "cluster index " << atom.get_cluster_index()
+                  << std::endl;
+        for (auto pair : atom.pairs_with_self_pair()) {
+          std::cout << "  pair (" << atom.get_atom_tag() << ", "
+                    << pair.get_atom_tag() << "): "
+                    << "global index " << pair.get_global_index()
+                    << std::endl;
+        }
+      }
+      std::cout << std::endl;
   }
-  std::cout << std::endl;
 
-  std::cout << "Computing representation..." << std::endl;
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "Computing representation..." << std::endl;
   calculator->compute(managers);
-  std::cout << "Computed representation." << std::endl;
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "Computed representation." << std::endl;
   auto && expansions_coefficients{*manager->template get_property<rascal::CalculatorSphericalInvariants::template Property_t<rascal::AdaptorStrict<
    rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>>>(
     calculator->get_name())};
-  
-  //for (auto atom : manager) {
-  //  std::cout << expansions_coefficients[atom].get_full_vector().transpose() << std::endl;
+ 
+  // representation vector can be printed if needed
+  //if (this->log_level >= RASCAL_LOG::TRACE) {
+  //  for (auto atom : manager) {
+  //    std::cout << expansions_coefficients[atom].get_full_vector().transpose() << std::endl;
+  //  }
   //}
 
 
-
-  //// predict gradient, stress
-
-  //std::cout << "weights_vec " << std::endl;
-  //std::cout << weights_vec.size() << std::endl;
-  //std::cout << std::endl;
-  //std::cout << "weights " << std::endl;
-  //std::cout << weights << std::endl;
-  //// manual
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "Compute KNM" << std::endl;
   rascal::math::Matrix_t KNM{kernel->compute(*calculator, managers, sparse_points)};
-  std::cout << "KNM shape " << KNM.rows() << ", " << KNM.cols() << std::endl;
-  std::cout << "weights shape " << weights.rows() << ", " << weights.cols() << std::endl;
-  // is this total energy?
-  rascal::math::Matrix_t energies = KNM * weights.transpose();
-  //std::cout << weights << std::endl;
 
-  std::cout << "compute_sparse_kernel_gradients" << std::endl;
+  if (this->log_level >= RASCAL_LOG::DEBUG) {
+    std::cout << "KNM shape " << KNM.rows() << ", " << KNM.cols() << std::endl;
+    std::cout << "weights shape " << weights.rows() << ", " << weights.cols() << std::endl;
+  }
+  // predict energies 
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "Compute energies" << std::endl;
+  rascal::math::Matrix_t rascal_energies = KNM * weights.transpose();
+  if (this->log_level >= RASCAL_LOG::DEBUG) {
+    std::cout << "rascal energies with shape (" << rascal_energies.rows() << ", " << rascal_energies.cols() << "):\n"
+              << rascal_energies
+              << std::endl;
+  }
+
+  // predict forces
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "Compute forces" << std::endl;
   std::string force_name = rascal::compute_sparse_kernel_gradients(
           *calculator, *kernel, managers, sparse_points, weights);
-
-  // needs some small adaptation
-  //std::string neg_stress_name = rascal::compute_sparse_kernel_neg_stress(
-  //    *calculator, *kernel, managers, sparse_points, weights);
-
-  std::cout << "get gradients" << std::endl;
   auto && gradients{*manager->template get_property<
       rascal::Property<double, 1, rascal::AdaptorStrict<
-   rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>, 1, 3>>(force_name, true)};
-
-  std::cout << "matrix map" << std::endl;
-  rascal::math::Matrix_t rascal_force = Eigen::Map<const rascal::math::Matrix_t>(
+      rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>, 1, 3>>(force_name, true)};
+  //rascal::math::Matrix_t rascal_force = Eigen::Map<const rascal::math::Matrix_t>(
+  //     gradients.view().data(), manager->size(), 3);
+  auto rascal_forces = Eigen::Map<const rascal::math::Matrix_t>(
        gradients.view().data(), manager->size(), 3);
-  std::cout << "rascal_force" << std::endl;
-  std::cout << rascal_force << std::endl;
-  std::cout <<  "nlocal + nghost = " << nlocal << "+" << nghost <<std::endl;
- std::cout << "lammps force" << std::endl;
+  if (this->log_level >= RASCAL_LOG::DEBUG) {
+    std::cout << "rascal forces with shape (" << rascal_forces.rows() << ", " << rascal_forces.cols() << "):\n"
+              << rascal_forces
+              << std::endl;
+  }
+
+
+  // predict stress
+  // TODO(alex) needs some small adaptation in rascal code
+  //if (this->log_level >= RASCAL_LOG::DEBUG)
+  //  std::cout << "Compute stress" << std::endl;
+  //   //std::string neg_stress_name = rascal::compute_sparse_kernel_neg_stress(
+  //    *calculator, *kernel, managers, sparse_points, weights);
+
+
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "Copy forces to lammps" << std::endl;
   for (ii = 0; ii < nlocal; ii++) {
      for (jj = 0; jj < 3; jj++) {
-        f[ii][jj] -=  rascal_force(ii, jj);
-        std::cout << f[ii][jj] << ", "; 
+        f[ii][jj] -=  rascal_forces(ii, jj);
      }
-     std::cout << std::endl;
   }
-   std::cout << std::endl;
-  std::cout << "energies " << energies.rows() << " " << energies.cols() << std::endl;
-  std::cout << energies << std::endl;
 
-  std::cout << "eflag_global " << eflag_global << std::endl;
   if (eflag_global) {
-    eng_vdwl = energies(0,0);
-  }
-
-  if (eflag_atom) {
-    for (ii = 0; ii < ntotal; ii++) {
-      eatom[ii] = energies(0,0)/ntotal;
-    }
+    eng_vdwl = rascal_energies(0,0);
   }
   
-  if (vflag_global) {
-      virial[0] = 1;
-      virial[1] = 1;
-      virial[2] = 1;
-      virial[3] = 1;
-      virial[4] = 1;
-      virial[5] = 1;
-  }
-
-  if (vflag_atom) {
-    int iatom = 0;
-     for (ii = 0; ii < ntotal; ii++) {
-       vatom[ii][0] += 0.5; 
-       vatom[ii][1] += 0.5; 
-       vatom[ii][2] += 0.5; 
-       vatom[ii][3] += 0.5; 
-       vatom[ii][4] += 0.5; 
-       vatom[ii][5] += 0.5; 
-       iatom += 9;
-     }
-  }
-  
-  //size_t i_center{0};
-  //for (auto manager : managers) {
-  //  rascal::math::Matrix_t ee =
-  //      energies.block(i_center, 0, 1, 1);
-  //  std::cout << "ee shape: " << ee.rows() << ", " << ee.cols() << std::endl;
-
-  //  auto && gradients{*manager->template get_property<
-  //      Property<double, 1, Manager_t, 1, ThreeD>>(force_name, true)};
-  //  rascal::math::Matrix_t ff = Eigen::Map<const math::Matrix_t>(
-  //      gradients.view().data(), manager->size() * ThreeD, 1);
-  //  std::cout << "ff shape: " << ff.rows() << ", " << ff.cols() << std::endl;
-
-  //  auto && neg_stress{
-  //      *manager->template get_property<Property<double, 0, Manager_t, 6>>(
-  //          neg_stress_name, true)};
-  //  rascal::math::Matrix_t ff_stress =
-  //     Eigen::Map<const math::Matrix_t>(neg_stress.view().data(), 6, 1);
-  //  std::cout << "ff_stress shape: " << ff_stress.rows() << ", " << ff_stress.cols() << std::endl;
-
-  //  i_center += manager->size() * ThreeD;
+  // COMMENT(alex)
+  //if (eflag_atom) {
+  //  for (ii = 0; ii < ntotal; ii++) {
+  //    eatom[ii] = rascal_energies(0,0)/ntotal;
+  //  }
   //}
-  std::cout << "PairRASCAL::compute end" << std::endl;
+  //
+  //if (vflag_global) {
+  //    virial[0] = 1;
+  //    virial[1] = 1;
+  //    virial[2] = 1;
+  //    virial[3] = 1;
+  //    virial[4] = 1;
+  //    virial[5] = 1;
+  //}
+
+  //if (vflag_atom) {
+  //  int iatom = 0;
+  //   for (ii = 0; ii < ntotal; ii++) {
+  //     vatom[ii][0] += 0.5; 
+  //     vatom[ii][1] += 0.5; 
+  //     vatom[ii][2] += 0.5; 
+  //     vatom[ii][3] += 0.5; 
+  //     vatom[ii][4] += 0.5; 
+  //     vatom[ii][5] += 0.5; 
+  //     iatom += 9;
+  //   }
+  //}
+  
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "PairRASCAL::compute end" << std::endl;
 }
 
 // I think rascal also require in metal units, since QUIP does
@@ -324,14 +344,14 @@ void PairRASCAL::compute(int eflag, int vflag)
 
 void PairRASCAL::settings(int narg, char ** /* arg */)
 {
-  std::cout << "PairRASCAL::settings start" << std::endl;
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "PairRASCAL::settings start" << std::endl;
   if (narg != 0) error->all(FLERR,"Illegal pair_style command");
 
-  // QUIP potentials are parameterized in metal units
-  // TODO also rascal?
   if (strcmp("metal",update->unit_style) != 0)
-    error->all(FLERR,"QUIP potentials require 'metal' units");
-  std::cout << "PairRASCAL::settings end" << std::endl;
+    error->all(FLERR,"Rascal potentials require 'metal' units");
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "PairRASCAL::settings end" << std::endl;
 }
 
 void PairRASCAL::allocate()
@@ -351,74 +371,117 @@ void PairRASCAL::allocate()
 // pair_style      quip
 // pair_coeff      * * gap_example.xml "Potential xml_label=GAP_2014_5_8_60_17_10_38_466" 14
 // arg contains the arguments ['*', '*', 'gap_example', 'Potential xml_label=GAP_2014_5_8_60_17_10_38_466', '14']
+
 void PairRASCAL::coeff(int narg, char **arg)
 {
-  std::cout << "PairRASCAL::coeff start" << std::endl;
   if (!allocated) allocate();
 
   int n = atom->ntypes;
-  if (narg != (3 + n))
+  if (narg != (4 + n))
     error->all(FLERR,"Number of arguments {} is not correct, "
-                                 "it should be {}", narg, 3 + n);
+                                 "it should be {}", narg, 4 + n);
 
   // ensure I,J args are * *
-
   if (strcmp(arg[0],"*") != 0 || strcmp(arg[1],"*") != 0)
     error->all(FLERR,"Incorrect args for pair coefficients");
 
-  rascal_file = utils::strdup(arg[2]);
-  rascal_atom_types.reserve(n);
-  for (int i=0; i<n; i++) {
-    rascal_atom_types.emplace_back(std::atoi(arg[i+3]));
-    std::cout << "rascal_atom_types " << rascal_atom_types[i] << std::endl;
+  if (strcmp(arg[2],"info") == 0)
+    log_level = RASCAL_LOG::INFO; 
+  else if (strcmp(arg[2],"debug") == 0){
+    log_level = RASCAL_LOG::DEBUG; 
+  }
+  else if (strcmp(arg[2],"trace") == 0){
+    log_level = RASCAL_LOG::TRACE; 
+  } else {
+    error->all(FLERR,"Log level only supports {info|debug|trace}");
   }
 
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "PairRASCAL::coeff start" << std::endl;
 
-  // needed? TODO(alex)
-  n_rascal_file = strlen(rascal_file);
+  rascal_file = utils::strdup(arg[3]);
+  rascal_atom_types.reserve(n);
+  for (int i=0; i<n; i++) {
+    rascal_atom_types.emplace_back(std::atoi(arg[i+4]));
+    if (this->log_level >= RASCAL_LOG::DEBUG)
+      std::cout << "rascal_atom_types " << rascal_atom_types[i] << std::endl;
+  }
 
-  // here we load model file TODO(alex) should be within rascal with a function load_rascal_model(filename)
+  //// begin within rascal (code would be later moved into rascal)
+  // here we load model file 
   json input = rascal::json_io::load(rascal_file);
-  std::cout << "input loaded" << std::endl;
   json init_params = input.at("init_params").template get<json>();
-  std::cout << "init_params" << std::endl;
   json X_train = init_params.at("X_train").template get<json>();
-  std::cout << "X_train" << std::endl;
 
   // sparse points
-  json sparse_data = X_train.at("data").template get<json>();
-  json sparse_input = sparse_data.at("sparse_points").template get<json>();
-  //sparse_points = rascal::SparsePointsBlockSparse<rascal::CalculatorSphericalInvariants>();
-  rascal::from_json(sparse_input, sparse_points);
-
+  try {
+    json sparse_data = X_train.at("data").template get<json>();
+    json sparse_input = sparse_data.at("sparse_points").template get<json>();
+    //sparse_points = rascal::SparsePointsBlockSparse<rascal::CalculatorSphericalInvariants>();
+    rascal::from_json(sparse_input, sparse_points);
+  } catch (const std::exception& e) {
+    std::cerr << "Error\n"
+              << "Loading sparse points from json failed. "
+              << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
+              << e.what()
+              << std::endl;
+  }
 
   // kernel
-  json kernel_params = init_params.at("kernel").template get<json>();
-  json kernel_data = kernel_params.at("data").template get<json>();
-  json kernel_cpp_params = kernel_data.at("cpp_kernel").template get<json>();
-  kernel = std::make_shared<rascal::SparseKernel>(kernel_cpp_params);
+  json kernel_params;
+  try {
+    kernel_params = init_params.at("kernel").template get<json>();
+    json kernel_data = kernel_params.at("data").template get<json>();
+    json kernel_cpp_params = kernel_data.at("cpp_kernel").template get<json>();
+    kernel = std::make_shared<rascal::SparseKernel>(kernel_cpp_params);
+  } catch (const std::exception& e) {
+    std::cerr << "Error\n"
+              << "Loading kernel from json failed. "
+              << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
+              << e.what()
+              << std::endl;
+  }
 
   // calculator
-  json kernel_init_params = kernel_params.at("init_params").template get<json>();
-  json kernel_representation = kernel_init_params.at("representation").template get<json>();
-  json kernel_representation_data = kernel_representation.at("data").template get<json>();
-  json representation_cpp_params = kernel_representation_data.at("cpp_representation").template get<json>();
-  calculator = std::make_shared<rascal::CalculatorSphericalInvariants>(representation_cpp_params);
+  json representation_cpp_params;
+  try {
+    json kernel_init_params = kernel_params.at("init_params").template get<json>();
+    json kernel_representation = kernel_init_params.at("representation").template get<json>();
+    json kernel_representation_data = kernel_representation.at("data").template get<json>();
+    representation_cpp_params = kernel_representation_data.at("cpp_representation").template get<json>();
+    calculator = std::make_shared<rascal::CalculatorSphericalInvariants>(representation_cpp_params);
+  } catch (const std::exception& e) {
+    std::cerr << "Error\n"
+              << "Loading calculator from json failed. "
+              << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
+              << e.what()
+              << std::endl;
+  }
 
   // weights
+  // COMMENT(alex) how weights could be loaded from a std::vector<double>, in this case Eigen provides simplifying utilities
   //std::vector<double> weights_vec = init_params.at("weights").template get<json>().at(1).template get<std::vector<double>>();
-  //// TODO(alex) I think does copy, but double check
   //weights = Eigen::Map<rascal::math::Vector_t>(weights_vec.data(), static_cast<long int>(weights_vec.size()));
-
-  std::vector<std::vector<double>> weights_vec = init_params.at("weights").template get<json>().at(1).template get<std::vector<std::vector<double>>>();
+  std::vector<std::vector<double>> weights_vec;
+  try {
+    weights_vec = init_params.at("weights").template get<json>().at(1).template get<std::vector<std::vector<double>>>();
+  } catch (const std::exception& e) {
+    std::cerr << "Error\n"
+              << "Loading weights from json failed. "
+              << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
+              << e.what()
+              << std::endl;
+  }
   if (sparse_points.size() != weights_vec.size()) {
-    std::cerr << "weight size and sparse_points size disagree ";
-              << "In file " << __LINE__ << ", " << __FILE__;
+    std::cerr << "weight size and sparse_points size disagree "
+              << "In file " << __FILE__ << " (line " << __LINE__ << ")"
+              << std::endl;
   }
   if (1 != weights_vec.at(0).size()) {
     std::cerr << "The shape of the weights is (" << weights_vec.size() << ", " << weights_vec.at(0).size() << "), "
               << " but C++ interface does not support multitarget learning. The second dimension must be one."
-              << "In file " << __LINE__ << ", " << __FILE__;
+              << "In file " << __FILE__ << " (line " << __LINE__ << ")"
+              << std::endl;
   }
 
   weights = rascal::math::Vector_t(weights_vec.size());
@@ -426,14 +489,12 @@ void PairRASCAL::coeff(int narg, char **arg)
     weights(i) = weights_vec[i][0];
   }
 
-
-
-
   // cutoff
   cutoff = representation_cpp_params.at("cutoff_function").template get<json>().at("cutoff").template get<json>().at("value").template get<double>();
 
-  // clear setflag since coeff() called once with I,J = * *
 
+  // COMMENT(alex) copied from QUIP, havent understood this
+  // clear setflag since coeff() called once with I,J = * *
   for (int i = 1; i <= n; i++)
     for (int j = i; j <= n; j++)
       setflag[i][j] = 0;
@@ -448,7 +509,6 @@ void PairRASCAL::coeff(int narg, char **arg)
       }
 
   if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
-
 
   auto root_manager = rascal::make_structure_manager<rascal::StructureManagerLammps>();
 
@@ -467,27 +527,38 @@ void PairRASCAL::coeff(int narg, char **arg)
 
   managers.add_structure(manager);
 
-  std::cout << "PairRASCAL::coeff end" << std::endl;
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "PairRASCAL::coeff end" << std::endl;
+  //// end within rascal 
 }
 
 void PairRASCAL::init_style()
 {
-  std::cout << "PairRASCAL::init_style start" << std::endl;
-  // TODO check if necessary
-  // Require newton pair on
-  if (force->newton_pair != 1)
-    error->all(FLERR,"Pair style quip requires newton pair on");
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "PairRASCAL::init_style start" << std::endl;
+  // COMMENT(alex) I think we can support both, but I am 100% sure so I leave it here so it will not be forgotten
+  //if (force->newton_pair != 1)
+  //  error->all(FLERR,"Pair style quip requires newton pair on");
 
   // Initialise neighbor list
   int irequest_full = neighbor->request(this);
-  neighbor->requests[irequest_full]->half = 1;
-  neighbor->requests[irequest_full]->full = 0;
-  std::cout << "PairRASCAL::init_style end" << std::endl;
+  // COMMENT(alex) could be generalized to support both types but I don't know if people need this
+  if (neighbor->requests[irequest_full]->full) {
+    std::cout << "Found request for half neighborlist, but rascal pair "
+                 "potential only works with full neighborlist. Setting "
+                 "it to full neighborlist."
+              << std::endl;
+  }
+  neighbor->requests[irequest_full]->half = 0;
+  neighbor->requests[irequest_full]->full = 1;
+
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "PairRASCAL::init_style end" << std::endl;
 }
 
 double PairRASCAL::init_one(int /*i*/, int /*j*/)
 {
-  std::cout << "PairRASCAL::init_one start with cutoff " << cutoff << std::endl;
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "PairRASCAL::init_one return with cutoff " << cutoff << std::endl;
   return cutoff;
-  std::cout << "PairRASCAL::init_one end" << std::endl;
 }
