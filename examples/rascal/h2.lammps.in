@@ -23,7 +23,7 @@ pair_coeff * * debug h2_model.json 1
 #pair_style lj/cut 2.0 # !set cutoff to the same value as your rascal potential
 #pair_coeff * * 1 1
 
-minimize   1.0e-8 1.0e-8 1 1
+minimize   1.0e-8 1.0e-8 100 100
 min_style cg
 
 dump		        1 all xyz 1 h2_min.lammps.out

@@ -319,14 +319,26 @@ void PairRASCAL::compute(int eflag, int vflag)
               << std::endl;
   }
 
-
   // predict stress
-  // TODO(alex) needs some small adaptation in rascal code
-  //if (this->log_level >= RASCAL_LOG::DEBUG)
-  //  std::cout << "Compute stress" << std::endl;
-  //   //std::string neg_stress_name = rascal::compute_sparse_kernel_neg_stress(
-  //    *calculator, *kernel, managers, sparse_points, weights);
-
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "Compute stress" << std::endl;
+  std::string neg_stress_name = rascal::compute_sparse_kernel_neg_stress(
+      *calculator, *kernel, managers, sparse_points, weights);
+  //auto rascal_negative_stress = Eigen::Map<const rascal::math::Matrix_t>(
+  //     gradients.view().data(), manager->size(), 3);
+  auto && gradients_neg_stress {
+      *manager->template get_property<rascal::Property<double, 0, rascal::AdaptorStrict<
+      rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>, 6>>(
+          neg_stress_name, true)};
+  // REMINDER(alex) with this it should be copied 
+  //rascal::math::Matrix_t rascal_negative_stress
+  auto rascal_negative_stress =
+     Eigen::Map<const rascal::math::Matrix_t>(gradients_neg_stress.view().data(), 6, 1);
+  if (this->log_level >= RASCAL_LOG::DEBUG) {
+    std::cout << "rascal negative_stress with shape (" << rascal_negative_stress.rows() << ", " << rascal_negative_stress.cols() << "):\n"
+              << rascal_negative_stress.transpose()
+              << std::endl;
+  }
 
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << "Copy forces to lammps" << std::endl;
@@ -336,26 +348,31 @@ void PairRASCAL::compute(int eflag, int vflag)
      }
   }
 
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "Copy structure energy to lammps" << std::endl;
   if (eflag_global) {
     eng_vdwl = rascal_energies(0,0);
   }
   
-  // COMMENT(alex)
+  // TODO(alex) to obtain per atom properties it requires changes in the prediction interface of rascal
   //if (eflag_atom) {
   //  for (ii = 0; ii < ntotal; ii++) {
   //    eatom[ii] = rascal_energies(0,0)/ntotal;
   //  }
   //}
-  //
-  //if (vflag_global) {
-  //    virial[0] = 1;
-  //    virial[1] = 1;
-  //    virial[2] = 1;
-  //    virial[3] = 1;
-  //    virial[4] = 1;
-  //    virial[5] = 1;
-  //}
 
+  if (this->log_level >= RASCAL_LOG::DEBUG)
+    std::cout << "Copy structure stress to lammps" << std::endl;
+  if (vflag_global) {
+      virial[0] = rascal_negative_stress(0);
+      virial[1] = rascal_negative_stress(1);
+      virial[2] = rascal_negative_stress(2);
+      virial[3] = rascal_negative_stress(3);
+      virial[4] = rascal_negative_stress(4);
+      virial[5] = rascal_negative_stress(5);
+  }
+
+  // TODO(alex) to obtain per atom properties it requires changes in the prediction interface of rascal
   //if (vflag_atom) {
   //  int iatom = 0;
   //   for (ii = 0; ii < ntotal; ii++) {
@@ -422,15 +439,14 @@ void PairRASCAL::coeff(int narg, char **arg)
   if (strcmp(arg[0],"*") != 0 || strcmp(arg[1],"*") != 0)
     error->all(FLERR,"Incorrect args for pair coefficients");
 
-  if (strcmp(arg[2],"info") == 0)
+  if (strcmp(arg[2],"info") == 0) {
     log_level = RASCAL_LOG::INFO; 
-  else if (strcmp(arg[2],"debug") == 0){
+  } else if (strcmp(arg[2],"debug") == 0) {
     log_level = RASCAL_LOG::DEBUG; 
-  }
-  else if (strcmp(arg[2],"trace") == 0){
+  } else if (strcmp(arg[2],"trace") == 0) {
     log_level = RASCAL_LOG::TRACE; 
   } else {
-    error->all(FLERR,"Log level only supports {info|debug|trace}");
+    error->all(FLERR,"Rascal log level only supports {info|debug|trace}");
   }
 
   if (this->log_level >= RASCAL_LOG::DEBUG)
