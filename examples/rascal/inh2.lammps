@@ -15,7 +15,7 @@ pair_style rascal
 #   info: no additional output to the standard lammps one
 #   debug: prints outputs of the energy and force caluculation of rascal
 #   trace: prints all available information including neighborlist information
-pair_coeff * * trace h2_model.json 1
+pair_coeff * * debug h2_model.json 1
 
 # if you get a bug  with the rascal potential, please check before with some simple
 # potential if the bug does not come from an ill-defined simulation

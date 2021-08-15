@@ -22,6 +22,7 @@
 #include "atom.h"
 #include "comm.h"
 #include "domain.h"
+#include "lattice.h"
 #include "error.h"
 #include "force.h"
 #include "memory.h"
@@ -100,6 +101,8 @@ void PairRASCAL::compute(int eflag, int vflag)
   int *ilist;
   int *jlist;
   int *numneigh, **firstneigh;
+  double *lattice;
+  int *pbc;
 
   int nlocal = atom->nlocal;
   int nghost = atom->nghost;
@@ -127,11 +130,39 @@ void PairRASCAL::compute(int eflag, int vflag)
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
-  //std::cout << "list->ghost " << list->ghost << std::endl;
-  //std::cout << "list->firstneigh" << std::endl;
+
+  lattice = new double [9];
+  lattice[0] = domain->xprd;
+  lattice[1] = 0.0;
+  lattice[2] = 0.0;
+  lattice[3] = domain->xy;
+  lattice[4] = domain->yprd;
+  lattice[5] = 0.0;
+  lattice[6] = domain->xz;
+  lattice[7] = domain->yz;
+  lattice[8] = domain->zprd;
+
+  // TODO(alex) can be set more globally at the initialization process
+  pbc = new int [3];
+  pbc[0] = domain->xperiodic;
+  pbc[1] = domain->yperiodic;
+  pbc[2] = domain->zperiodic;
 
   if (this->log_level >= RASCAL_LOG::TRACE) {
-    std::cout << std::endl;
+    std::cout << "Lammps lattice: "
+              << domain->lattice->a1[0] << ", " << domain->lattice->a1[1] << ", " << domain->lattice->a1[2] << "; "
+              << domain->lattice->a2[0] << ", " << domain->lattice->a2[1] << ", " << domain->lattice->a2[2] << "; "
+              << domain->lattice->a3[0] << ", " << domain->lattice->a3[1] << ", " << domain->lattice->a3[2] 
+              << std::endl;
+
+    std::cout << "Lammps (domain) cell: "
+              << domain->xprd << ", " << 0 << ", " << 0 << "; "
+              << domain->xy << ", " << domain->yprd << ", " << 0 << "; "
+              << domain->xz << ", " << domain->yz << ", " << domain->zprd 
+              << std::endl;
+    std::cout << "Lammps pbc: "
+              << domain->xperiodic << ", " << domain->yperiodic << ", " << domain->zperiodic
+              << std::endl;
     std::cout << "Lammps position list:\n";
     for (int i=0; i < tot_num ; i++) {
       std::cout << "center " << i << ", lammps atom tag " << atom->tag[i] << ", ";
@@ -164,10 +195,14 @@ void PairRASCAL::compute(int eflag, int vflag)
   }
 
   std::shared_ptr<rascal::AdaptorStrict<rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>> manager = *managers.begin();
-  manager->update(inum, tot_num, ilist, numneigh, firstneigh, x, f, type, eatom, vatom, rascal_atom_types, tag);
+  manager->update(inum, tot_num, ilist, numneigh, firstneigh, x, f, type, eatom, vatom, rascal_atom_types, tag, lattice, pbc);
 
   if (this->log_level >= RASCAL_LOG::TRACE) {
-      std::cout << "manager->offsets\n";
+      // rascal manager/adaptors do not have get_cell method implemented,
+      // therefore we have to get the information in this "hacky" way
+      std::cout << "rascal lattice:\n" << rascal::extract_underlying_manager<0>(manager)->get_cell() << std::endl;
+      std::cout << "rascal pbc: " << rascal::extract_underlying_manager<0>(manager)->get_periodic_boundary_conditions().transpose() << std::endl;
+      std::cout << "rascal manager->offsets\n";
       for (int k=0; k < manager->offsets.size(); k++) {
          for (int p=0; p < manager->offsets[k].size(); p++) {
            std::cout << manager->offsets[k][p] << ", ";
@@ -176,7 +211,7 @@ void PairRASCAL::compute(int eflag, int vflag)
       }
       std::cout << std::endl;
 
-      std::cout << "manager->nb_neigh\n";
+      std::cout << "rascal manager->nb_neigh\n";
       for (int k=0; k < manager->nb_neigh.size(); k++) {
          for (int p=0; p < manager->nb_neigh[k].size(); p++) {
            std::cout << manager->nb_neigh[k][p] << ", ";
@@ -185,7 +220,7 @@ void PairRASCAL::compute(int eflag, int vflag)
       }
       std::cout << std::endl;
 
-      std::cout << "manager->atom_tag_list\n";
+      std::cout << "rascal manager->atom_tag_list\n";
       for (int k=0; k < manager->atom_tag_list.size(); k++) {
          for (int p=0; p < manager->atom_tag_list[k].size(); p++) {
            std::cout << manager->atom_tag_list[k][p] << ", ";
@@ -194,13 +229,13 @@ void PairRASCAL::compute(int eflag, int vflag)
       }
       std::cout << std::endl;
       
-      std::cout << "manager->neighbours_cluster_index\n";
+      std::cout << "rascal manager->neighbours_cluster_index\n";
       for (int k=0; k < manager->neighbours_cluster_index.size(); k++) {
          std::cout << manager->neighbours_cluster_index[k] << ", ";
       }
       std::cout << std::endl;
 
-      std::cout << "neighbor list without ghosts\n";
+      std::cout << "rascal neighbor list without ghosts\n";
       for (auto atom : manager) {
           std::cout << "center atom tag " << atom.get_atom_tag() << ", "
                     << "cluster index " << atom.get_cluster_index()
@@ -216,7 +251,7 @@ void PairRASCAL::compute(int eflag, int vflag)
       }
       std::cout << std::endl;
 
-      std::cout << "neighbor list with ghosts\n";
+      std::cout << "rascal neighbor list with ghosts\n";
       for (auto atom : manager->with_ghosts()) {
         std::cout << "center atom tag " << atom.get_atom_tag() << ", "
                   << "cluster index " << atom.get_cluster_index()
@@ -334,6 +369,8 @@ void PairRASCAL::compute(int eflag, int vflag)
   //   }
   //}
   
+  delete [] lattice;
+  delete [] pbc;
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << "PairRASCAL::compute end" << std::endl;
 }
