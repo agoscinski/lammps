@@ -1,0 +1,17 @@
+#Two hydrogen atoms
+
+2 atoms
+0 1.1 xlo xhi
+0 1.1 ylo yhi
+0 1.1 zlo zhi
+
+1 atom types
+
+Masses
+
+1 1.00794
+
+Atoms
+
+1      1      0.1      0.1      0.1
+2      1      0.9      0.9      0.9

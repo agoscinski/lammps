@@ -457,11 +457,12 @@ void PairRASCAL::coeff(int narg, char **arg)
     //sparse_points = rascal::SparsePointsBlockSparse<rascal::CalculatorSphericalInvariants>();
     rascal::from_json(sparse_input, sparse_points);
   } catch (const std::exception& e) {
-    std::cerr << "Error\n"
-              << "Loading sparse points from json failed. "
-              << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
-              << e.what()
-              << std::endl;
+    std::stringstream error{};
+    error << "Error: "
+          << "Loading sparse points from json failed. "
+          << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
+          << e.what();
+    throw std::runtime_error(error.str());
   }
 
   // kernel
