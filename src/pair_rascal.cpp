@@ -664,9 +664,11 @@ void PairRASCAL::init_style()
 {
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << sched_getcpu() << ": " << "PairRASCAL::init_style start" << std::endl;
-  // COMMENT(alex) I think we can support both, but I am 100% sure so I leave it here so it will not be forgotten
+  // COMMENT(alex) Copy from quip, I am not sure yet how this work.
+  //               My guess is that it is not necessary putting does
+  //               not require extra MPI communication so they enforce it to set off 
   if (force->newton_pair != 1)
-    error->all(FLERR,"Pair style quip requires newton pair on");
+    error->all(FLERR,"Pair style rascal requires newton pair on");
 
   // Initialise neighbor list
   int irequest_full = neighbor->request(this);
