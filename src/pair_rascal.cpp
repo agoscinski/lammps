@@ -18,6 +18,7 @@
 ------------------------------------------------------------------------- */
 
 #include "pair_rascal.h"
+#include <sched.h>
 
 #include "atom.h"
 #include "comm.h"
@@ -95,8 +96,9 @@ PairRASCAL::~PairRASCAL()
 
 void PairRASCAL::compute(int eflag, int vflag)
 {
+
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "PairRASCAL::compute start" << std::endl;
+    std::cout << sched_getcpu() << ": " << "PairRASCAL::compute start" << std::endl;
   int inum, jnum, sum_num_neigh, ii, jj, i;
   int *ilist;
   int *jlist;
@@ -111,9 +113,9 @@ void PairRASCAL::compute(int eflag, int vflag)
   // TODO(alex) should be properly handeled
   // tagint can be also int or int64_t depending on compile flags see LAMMPS_BIGBIG
   int *tag = atom->tag;
-  //std::cout << "sizeof(tagint)" << sizeof(tagint) << std::endl;
+  //std::cout << sched_getcpu() << ": " << "sizeof(tagint)" << sizeof(tagint) << std::endl;
   //for (int i{0}; i < ntotal; i++) {
-  //  std::cout << "atom->tag[i] " << (int) atom->tag[i] << std::endl;
+  //  std::cout << sched_getcpu() << ": " << "atom->tag[i] " << (int) atom->tag[i] << std::endl;
   //}
 
   double **x = atom->x;
@@ -121,7 +123,7 @@ void PairRASCAL::compute(int eflag, int vflag)
 
   int const tot_num = atom->nlocal + atom->nghost;
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout <<  "Lammps number of neighbours: nlocal + nghost = " << nlocal << "+" << nghost <<std::endl;
+    std::cout << sched_getcpu() << ": " <<  "Lammps number of neighbours: nlocal + nghost = " << nlocal << "+" << nghost <<std::endl;
 
   // seems to be lammps intern
   ev_init(eflag,vflag);
@@ -149,24 +151,24 @@ void PairRASCAL::compute(int eflag, int vflag)
   pbc[2] = domain->zperiodic;
 
   if (this->log_level >= RASCAL_LOG::TRACE) {
-    std::cout << "Lammps lattice: "
+    std::cout << sched_getcpu() << ": " << "Lammps lattice: "
               << domain->lattice->a1[0] << ", " << domain->lattice->a1[1] << ", " << domain->lattice->a1[2] << "; "
               << domain->lattice->a2[0] << ", " << domain->lattice->a2[1] << ", " << domain->lattice->a2[2] << "; "
               << domain->lattice->a3[0] << ", " << domain->lattice->a3[1] << ", " << domain->lattice->a3[2] 
               << std::endl;
 
-    std::cout << "Lammps (domain) cell: "
+    std::cout << sched_getcpu() << ": " << "Lammps (domain) cell: "
               << domain->xprd << ", " << 0 << ", " << 0 << "; "
               << domain->xy << ", " << domain->yprd << ", " << 0 << "; "
               << domain->xz << ", " << domain->yz << ", " << domain->zprd 
               << std::endl;
-    std::cout << "Lammps pbc: "
+    std::cout << sched_getcpu() << ": " << "Lammps pbc: "
               << domain->xperiodic << ", " << domain->yperiodic << ", " << domain->zperiodic
               << std::endl;
-    std::cout << "Lammps position list:\n";
+    std::cout << sched_getcpu() << ": " << "Lammps position list:\n";
     for (int i=0; i < tot_num ; i++) {
-      std::cout << "center " << i << ", lammps atom tag " << atom->tag[i] << ", ";
-      std::cout <<"position ";
+      std::cout << sched_getcpu() << ": " << "center " << i << ", lammps atom tag " << atom->tag[i] << ", ";
+      std::cout << "position ";
       for (int j=0; j < 3; j++) {
         std::cout << atom->x[i][j] << " ";
       }
@@ -174,16 +176,16 @@ void PairRASCAL::compute(int eflag, int vflag)
     }
     std::cout << std::endl;
 
-    std::cout << "Lammps neighbor list:\n";
+    std::cout << sched_getcpu() << ": " << "Lammps neighbor list:\n";
     for (int i=0; i < inum; i++) {
-      std::cout << "center " << list->ilist[i] << ", ";
-      std::cout <<"position ";
+      std::cout << sched_getcpu() << ": " << "center " << list->ilist[i] << ", ";
+      std::cout << "position ";
       for (int p=0; p < 3; p++) {
         std::cout << atom->x[p][p] << " ";
       }
       std::cout << std::endl;
       for (int j=0; j < numneigh[i]; j++) {
-        std::cout << "  neigh " << list->firstneigh[i][j] << ", position ";
+        std::cout << sched_getcpu() << ": " << "  neigh " << list->firstneigh[i][j] << ", position ";
         for (int p=0; p < 3; p++) {
           std::cout << atom->x[list->firstneigh[i][j]][p] << " ";
         }
@@ -200,48 +202,52 @@ void PairRASCAL::compute(int eflag, int vflag)
   if (this->log_level >= RASCAL_LOG::TRACE) {
       // rascal manager/adaptors do not have get_cell method implemented,
       // therefore we have to get the information in this "hacky" way
-      std::cout << "rascal lattice:\n" << rascal::extract_underlying_manager<0>(manager)->get_cell() << std::endl;
-      std::cout << "rascal pbc: " << rascal::extract_underlying_manager<0>(manager)->get_periodic_boundary_conditions().transpose() << std::endl;
-      std::cout << "rascal manager->offsets\n";
+      std::cout << sched_getcpu() << ": " << "rascal lattice:\n" << rascal::extract_underlying_manager<0>(manager)->get_cell() << std::endl;
+      std::cout << sched_getcpu() << ": " << "rascal pbc: " << rascal::extract_underlying_manager<0>(manager)->get_periodic_boundary_conditions().transpose() << std::endl;
+      std::cout << sched_getcpu() << ": " << "rascal manager->offsets\n";
       for (int k=0; k < manager->offsets.size(); k++) {
+         std::cout << sched_getcpu() << ": ";
          for (int p=0; p < manager->offsets[k].size(); p++) {
            std::cout << manager->offsets[k][p] << ", ";
          }
-         std::cout << "\n";
+         std::cout << std::endl;
       }
       std::cout << std::endl;
 
-      std::cout << "rascal manager->nb_neigh\n";
+      std::cout << sched_getcpu() << ": " << "rascal manager->nb_neigh\n";
       for (int k=0; k < manager->nb_neigh.size(); k++) {
+         std::cout << sched_getcpu() << ": ";
          for (int p=0; p < manager->nb_neigh[k].size(); p++) {
            std::cout << manager->nb_neigh[k][p] << ", ";
          }
-         std::cout << "\n";
+         std::cout << std::endl;
       }
       std::cout << std::endl;
 
-      std::cout << "rascal manager->atom_tag_list\n";
+      std::cout << sched_getcpu() << ": " << "rascal manager->atom_tag_list\n";
       for (int k=0; k < manager->atom_tag_list.size(); k++) {
+         std::cout << sched_getcpu() << ": ";
          for (int p=0; p < manager->atom_tag_list[k].size(); p++) {
            std::cout << manager->atom_tag_list[k][p] << ", ";
          }
-         std::cout << "\n";
+         std::cout << std::endl;
       }
       std::cout << std::endl;
       
-      std::cout << "rascal manager->neighbours_cluster_index\n";
+      std::cout << sched_getcpu() << ": " << "rascal manager->neighbours_cluster_index\n";
+      std::cout << sched_getcpu() << ": ";
       for (int k=0; k < manager->neighbours_cluster_index.size(); k++) {
          std::cout << manager->neighbours_cluster_index[k] << ", ";
       }
       std::cout << std::endl;
 
-      std::cout << "rascal neighbor list without ghosts\n";
+      std::cout << sched_getcpu() << ": " << "rascal neighbor list without ghosts\n";
       for (auto atom : manager) {
-          std::cout << "center atom tag " << atom.get_atom_tag() << ", "
+          std::cout << sched_getcpu() << ": " << "center atom tag " << atom.get_atom_tag() << ", "
                     << "cluster index " << atom.get_cluster_index()
                     << std::endl;
         for (auto pair : atom.pairs_with_self_pair()) {
-          std::cout << "  pair (" << atom.get_atom_tag() << ", "
+          std::cout << sched_getcpu() << ": " << "  pair (" << atom.get_atom_tag() << ", "
                     << pair.get_atom_tag() << "): " 
                     << "global index " << pair.get_global_index() << ", "
                     << "pair dist " << manager->get_distance(pair)  << ", " 
@@ -251,13 +257,13 @@ void PairRASCAL::compute(int eflag, int vflag)
       }
       std::cout << std::endl;
 
-      std::cout << "rascal neighbor list with ghosts\n";
+      std::cout << sched_getcpu() << ": " << "rascal neighbor list with ghosts\n";
       for (auto atom : manager->with_ghosts()) {
-        std::cout << "center atom tag " << atom.get_atom_tag() << ", "
+        std::cout << sched_getcpu() << ": " << "center atom tag " << atom.get_atom_tag() << ", "
                   << "cluster index " << atom.get_cluster_index()
                   << std::endl;
         for (auto pair : atom.pairs_with_self_pair()) {
-          std::cout << "  pair (" << atom.get_atom_tag() << ", "
+          std::cout << sched_getcpu() << ": " << "  pair (" << atom.get_atom_tag() << ", "
                     << pair.get_atom_tag() << "): "
                     << "global index " << pair.get_global_index()
                     << std::endl;
@@ -267,43 +273,45 @@ void PairRASCAL::compute(int eflag, int vflag)
   }
 
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "Computing representation..." << std::endl;
+    std::cout << sched_getcpu() << ": " << "Computing representation..." << std::endl;
   calculator->compute(managers);
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "Computed representation." << std::endl;
+    std::cout << sched_getcpu() << ": " << "Computed representation." << std::endl;
   auto && expansions_coefficients{*manager->template get_property<rascal::CalculatorSphericalInvariants::template Property_t<rascal::AdaptorStrict<
    rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>>>(
     calculator->get_name())};
  
-  // representation vector can be printed if needed
+  // representation vector can be printed if needed but even for trace
+  // information it is too large, besides this it usally does not contain
+  // information helpful for debugging which you cannot derive from other outputs
   //if (this->log_level >= RASCAL_LOG::TRACE) {
   //  for (auto atom : manager) {
-  //    std::cout << expansions_coefficients[atom].get_full_vector().transpose() << std::endl;
+  //    std::cout << sched_getcpu() << ": " << expansions_coefficients[atom].get_full_vector().transpose() << std::endl;
   //  }
   //}
 
 
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "Compute KNM" << std::endl;
+    std::cout << sched_getcpu() << ": " << "Compute KNM" << std::endl;
   rascal::math::Matrix_t KNM{kernel->compute(*calculator, managers, sparse_points)};
 
   if (this->log_level >= RASCAL_LOG::DEBUG) {
-    std::cout << "KNM shape " << KNM.rows() << ", " << KNM.cols() << std::endl;
-    std::cout << "weights shape " << weights.rows() << ", " << weights.cols() << std::endl;
+    std::cout << sched_getcpu() << ": " << "KNM shape " << KNM.rows() << ", " << KNM.cols() << std::endl;
+    std::cout << sched_getcpu() << ": " << "weights shape " << weights.rows() << ", " << weights.cols() << std::endl;
   }
   // predict energies 
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "Compute energies" << std::endl;
+    std::cout << sched_getcpu() << ": " << "Compute energies" << std::endl;
   rascal::math::Matrix_t rascal_energies = KNM * weights.transpose();
   if (this->log_level >= RASCAL_LOG::DEBUG) {
-    std::cout << "rascal energies with shape (" << rascal_energies.rows() << ", " << rascal_energies.cols() << "):\n"
+    std::cout << sched_getcpu() << ": " << "rascal energies with shape (" << rascal_energies.rows() << ", " << rascal_energies.cols() << "):\n"
               << rascal_energies
               << std::endl;
   }
 
   // predict forces
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "Compute forces" << std::endl;
+    std::cout << sched_getcpu() << ": " << "Compute forces" << std::endl;
   std::string force_name = rascal::compute_sparse_kernel_gradients(
           *calculator, *kernel, managers, sparse_points, weights);
   auto && gradients{*manager->template get_property<
@@ -314,14 +322,14 @@ void PairRASCAL::compute(int eflag, int vflag)
   auto rascal_forces = Eigen::Map<const rascal::math::Matrix_t>(
        gradients.view().data(), manager->size(), 3);
   if (this->log_level >= RASCAL_LOG::DEBUG) {
-    std::cout << "rascal forces with shape (" << rascal_forces.rows() << ", " << rascal_forces.cols() << "):\n"
+    std::cout << sched_getcpu() << ": " << "rascal forces with shape (" << rascal_forces.rows() << ", " << rascal_forces.cols() << "):\n"
               << rascal_forces
               << std::endl;
   }
 
   // predict stress
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "Compute stress" << std::endl;
+    std::cout << sched_getcpu() << ": " << "Compute stress" << std::endl;
   std::string neg_stress_name = rascal::compute_sparse_kernel_neg_stress(
       *calculator, *kernel, managers, sparse_points, weights);
   //auto rascal_negative_stress = Eigen::Map<const rascal::math::Matrix_t>(
@@ -335,13 +343,13 @@ void PairRASCAL::compute(int eflag, int vflag)
   auto rascal_negative_stress =
      Eigen::Map<const rascal::math::Matrix_t>(gradients_neg_stress.view().data(), 6, 1);
   if (this->log_level >= RASCAL_LOG::DEBUG) {
-    std::cout << "rascal negative_stress with shape (" << rascal_negative_stress.rows() << ", " << rascal_negative_stress.cols() << "):\n"
+    std::cout << sched_getcpu() << ": " << "rascal negative_stress with shape (" << rascal_negative_stress.rows() << ", " << rascal_negative_stress.cols() << "):\n"
               << rascal_negative_stress.transpose()
               << std::endl;
   }
 
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "Copy forces to lammps" << std::endl;
+    std::cout << sched_getcpu() << ": " << "Copy forces to lammps" << std::endl;
   for (ii = 0; ii < nlocal; ii++) {
      for (jj = 0; jj < 3; jj++) {
         f[ii][jj] -=  rascal_forces(ii, jj);
@@ -349,7 +357,7 @@ void PairRASCAL::compute(int eflag, int vflag)
   }
 
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "Copy structure energy to lammps" << std::endl;
+    std::cout << sched_getcpu() << ": " << "Copy structure energy to lammps" << std::endl;
   if (eflag_global) {
     eng_vdwl = rascal_energies(0,0);
   }
@@ -362,7 +370,7 @@ void PairRASCAL::compute(int eflag, int vflag)
   //}
 
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "Copy structure stress to lammps" << std::endl;
+    std::cout << sched_getcpu() << ": " << "Copy structure stress to lammps" << std::endl;
   if (vflag_global) {
       virial[0] = rascal_negative_stress(0);
       virial[1] = rascal_negative_stress(1);
@@ -389,7 +397,7 @@ void PairRASCAL::compute(int eflag, int vflag)
   delete [] lattice;
   delete [] pbc;
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "PairRASCAL::compute end" << std::endl;
+    std::cout << sched_getcpu() << ": " << "PairRASCAL::compute end" << std::endl;
 }
 
 // I think rascal also require in metal units, since QUIP does
@@ -399,25 +407,25 @@ void PairRASCAL::compute(int eflag, int vflag)
 void PairRASCAL::settings(int narg, char ** /* arg */)
 {
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "PairRASCAL::settings start" << std::endl;
+    std::cout << sched_getcpu() << ": " << "PairRASCAL::settings start" << std::endl;
   if (narg != 0) error->all(FLERR,"Illegal pair_style command");
 
   if (strcmp("metal",update->unit_style) != 0)
     error->all(FLERR,"Rascal potentials require 'metal' units");
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "PairRASCAL::settings end" << std::endl;
+    std::cout << sched_getcpu() << ": " << "PairRASCAL::settings end" << std::endl;
 }
 
 void PairRASCAL::allocate()
 {
-  std::cout << "PairRASCAL::allocate start" << std::endl;
+  std::cout << sched_getcpu() << ": " << "PairRASCAL::allocate start" << std::endl;
   allocated = 1;
   int n = atom->ntypes;
 
   setflag = memory->create(setflag,n+1,n+1,"pair:setflag");
   cutsq = memory->create(cutsq,n+1,n+1,"pair:cutsq");
   map = new int[n+1];
-  std::cout << "PairRASCAL::allocate end" << std::endl;
+  std::cout << sched_getcpu() << ": " << "PairRASCAL::allocate end" << std::endl;
 }
 
 // For initialization, gives the input of of pair_coeff
@@ -450,14 +458,14 @@ void PairRASCAL::coeff(int narg, char **arg)
   }
 
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "PairRASCAL::coeff start" << std::endl;
+    std::cout << sched_getcpu() << ": " << "PairRASCAL::coeff start" << std::endl;
 
   rascal_file = utils::strdup(arg[3]);
   rascal_atom_types.reserve(n);
   for (int i=0; i<n; i++) {
     rascal_atom_types.emplace_back(std::atoi(arg[i+4]));
     if (this->log_level >= RASCAL_LOG::DEBUG)
-      std::cout << "rascal_atom_types " << rascal_atom_types[i] << std::endl;
+      std::cout << sched_getcpu() << ": " << "rascal_atom_types " << rascal_atom_types[i] << std::endl;
   }
 
   //// begin within rascal (code would be later moved into rascal)
@@ -604,23 +612,23 @@ void PairRASCAL::coeff(int narg, char **arg)
   managers.add_structure(manager);
 
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "PairRASCAL::coeff end" << std::endl;
+    std::cout << sched_getcpu() << ": " << "PairRASCAL::coeff end" << std::endl;
   //// end within rascal 
 }
 
 void PairRASCAL::init_style()
 {
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "PairRASCAL::init_style start" << std::endl;
+    std::cout << sched_getcpu() << ": " << "PairRASCAL::init_style start" << std::endl;
   // COMMENT(alex) I think we can support both, but I am 100% sure so I leave it here so it will not be forgotten
-  //if (force->newton_pair != 1)
-  //  error->all(FLERR,"Pair style quip requires newton pair on");
+  if (force->newton_pair != 1)
+    error->all(FLERR,"Pair style quip requires newton pair on");
 
   // Initialise neighbor list
   int irequest_full = neighbor->request(this);
   // COMMENT(alex) could be generalized to support both types but I don't know if people need this
   if (neighbor->requests[irequest_full]->full) {
-    std::cout << "Found request for half neighborlist, but rascal pair "
+    std::cout << sched_getcpu() << ": " << "WARNING: Found request for half neighborlist, but rascal pair "
                  "potential only works with full neighborlist. Setting "
                  "it to full neighborlist."
               << std::endl;
@@ -629,12 +637,12 @@ void PairRASCAL::init_style()
   neighbor->requests[irequest_full]->full = 1;
 
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "PairRASCAL::init_style end" << std::endl;
+    std::cout << sched_getcpu() << ": " << "PairRASCAL::init_style end" << std::endl;
 }
 
 double PairRASCAL::init_one(int /*i*/, int /*j*/)
 {
   if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << "PairRASCAL::init_one return with cutoff " << cutoff << std::endl;
+    std::cout << sched_getcpu() << ": " << "PairRASCAL::init_one return with cutoff " << cutoff << std::endl;
   return cutoff;
 }
