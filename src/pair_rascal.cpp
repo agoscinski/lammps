@@ -106,6 +106,7 @@ void PairRASCAL::compute(int eflag, int vflag)
   double *lattice;
   int *pbc;
 
+  // COMMENT(alex) as far as I have observed nlocal == inum, so I could remove this and only use inum
   int nlocal = atom->nlocal;
   int nghost = atom->nghost;
   int ntotal = nlocal + nghost;
@@ -122,8 +123,6 @@ void PairRASCAL::compute(int eflag, int vflag)
   double **f = atom->f;
 
   int const tot_num = atom->nlocal + atom->nghost;
-  if (this->log_level >= RASCAL_LOG::DEBUG)
-    std::cout << sched_getcpu() << ": " <<  "Lammps number of neighbours: nlocal + nghost = " << nlocal << "+" << nghost <<std::endl;
 
   // seems to be lammps intern
   ev_init(eflag,vflag);
@@ -132,6 +131,11 @@ void PairRASCAL::compute(int eflag, int vflag)
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
+
+  if (this->log_level >= RASCAL_LOG::DEBUG) {
+    std::cout << sched_getcpu() << ": " <<  "Lammps number of neighbours: nlocal + nghost = " << nlocal << "+" << nghost <<std::endl;
+    std::cout << sched_getcpu() << ": " <<  "Lammps inum = " << inum << std::endl;
+  }
 
   lattice = new double [9];
   lattice[0] = domain->xprd;
@@ -258,16 +262,20 @@ void PairRASCAL::compute(int eflag, int vflag)
       std::cout << std::endl;
 
       std::cout << sched_getcpu() << ": " << "rascal neighbor list with ghosts\n";
-      for (auto atom : manager->with_ghosts()) {
-        std::cout << sched_getcpu() << ": " << "center atom tag " << atom.get_atom_tag() << ", "
-                  << "cluster index " << atom.get_cluster_index()
-                  << std::endl;
-        for (auto pair : atom.pairs_with_self_pair()) {
-          std::cout << sched_getcpu() << ": " << "  pair (" << atom.get_atom_tag() << ", "
-                    << pair.get_atom_tag() << "): "
-                    << "global index " << pair.get_global_index()
+      if (inum > 0) {
+        for (auto atom : manager->with_ghosts()) {
+          std::cout << sched_getcpu() << ": " << "center atom tag " << atom.get_atom_tag() << ", "
+                    << "cluster index " << atom.get_cluster_index()
                     << std::endl;
+          for (auto pair : atom.pairs_with_self_pair()) {
+            std::cout << sched_getcpu() << ": " << "  pair (" << atom.get_atom_tag() << ", "
+                      << pair.get_atom_tag() << "): "
+                      << "global index " << pair.get_global_index()
+                      << std::endl;
+          }
         }
+      } else {
+        std::cout << sched_getcpu() << ": " << "inum is 0 therefore we do not print ghost neighbours, because rascal cannot handle it\n";
       }
       std::cout << std::endl;
   }
