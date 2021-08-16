@@ -1,36 +1,39 @@
 # Test of rascal potential for H2 structure
-units		metal
-boundary	f f f
+units  metal
+boundary  f f f
 
-atom_style	atomic
+atom_style  atomic
 
 # lammps sometimes does not include atoms which have the same distance as the cutoff
 # so please use a small skin to avoid this behaviour until we understood this better
-neighbor 0.1 bin
+neighbor  0.1 bin
 
-read_data	h2.lammps.data
+read_data  h2.lammps.data
 
-pair_style rascal
-# * * {LOG_LEVEL} {RASCAL_MODEL_NAME} {list all atom types occurring in structure file...}
+pair_style  rascal
+# pair_coeff  * * {LOG_LEVEL} {RASCAL_MODEL_NAME} {ATOM_TYPE_LIST}
 # LOG_LEVEL = {info|debug|trace}
 #   info: no additional output to the standard lammps one
 #   debug: prints outputs of the energy and force caluculation of rascal
 #   trace: prints all available information including neighborlist information
-pair_coeff * * trace h2_model.json 1
+# ATOM_TYPE_LIST = list all atom types occurring in structure file
+#                  (IMPORTANT) sorted ascending according to lammps atom types
+#                  which are set in the h2.lammps.data file
+pair_coeff  * * debug h2_model.json 1
 
 # if you get a bug  with the rascal potential, please check before with some simple
 # potential if the bug does not come from an ill-defined simulation
-#pair_style lj/cut 2.0 # !set cutoff to the same value as your rascal potential
-#pair_coeff * * 1 1
+#pair_style  lj/cut 2.0 # !set cutoff to the same value as your rascal potential
+#pair_coeff  * * 1 1
 
-timestep 0.0001
-minimize   1.0e-8 1.0e-8 100 100
-min_style cg
+timestep  0.001
+minimize  1.0e-8 1.0e-8 100 100
+min_style  cg
 
 
-dump		        1 all xyz 1 h2_min.lammps.out
-dump_modify     1 first yes sort id element H format line "%s %0.6f %0.6f %0.6f"
+dump  1 all xyz 1 h2_min.lammps.out
+dump_modify  1 first yes sort id element H format line "%s %0.6f %0.6f %0.6f"
 
-write_data h2_min.lammps.data
+write_data  h2_min.lammps.data
 
-run		0
+run  0
