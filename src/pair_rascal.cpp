@@ -136,6 +136,42 @@ void PairRASCAL::compute(int eflag, int vflag)
     std::cout << sched_getcpu() << ": " <<  "Lammps number of neighbours: nlocal + nghost = " << nlocal << "+" << nghost <<std::endl;
     std::cout << sched_getcpu() << ": " <<  "Lammps inum = " << inum << std::endl;
   }
+  
+  // in domain decomposition, domains can have 0 center atoms
+  if (inum == 0) {
+    if (this->log_level >= RASCAL_LOG::DEBUG)
+      std::cout << sched_getcpu() << ": " << "inum is 0 set forces to zero" << std::endl;
+    for (ii = 0; ii < inum; ii++) {
+       for (jj = 0; jj < 3; jj++) {
+          f[ii][jj] = 0;
+       }
+    }
+
+    if (this->log_level >= RASCAL_LOG::DEBUG)
+      std::cout << sched_getcpu() << ": " << "inum is 0 set structure energy to zero" << std::endl;
+    if (eflag_global) {
+      eng_vdwl = 0;
+    }
+    
+    // TODO(alex) to obtain per atom properties it requires changes in the prediction interface of rascal
+    //if (eflag_atom) {
+    //  for (ii = 0; ii < ntotal; ii++) {
+    //    eatom[ii] = rascal_energies(0,0)/ntotal;
+    //  }
+    //}
+
+    if (this->log_level >= RASCAL_LOG::DEBUG)
+      std::cout << sched_getcpu() << ": " << "inum is 0 set structure stress to zero" << std::endl;
+    if (vflag_global) {
+        virial[0] = 0;
+        virial[1] = 0;
+        virial[2] = 0;
+        virial[3] = 0;
+        virial[4] = 0;
+        virial[5] = 0;
+    }
+    return;
+  }
 
   lattice = new double [9];
   lattice[0] = domain->xprd;
@@ -230,7 +266,7 @@ void PairRASCAL::compute(int eflag, int vflag)
 
       std::cout << sched_getcpu() << ": " << "rascal manager->atom_tag_list\n";
       for (int k=0; k < manager->atom_tag_list.size(); k++) {
-         std::cout << sched_getcpu() << ": ";
+         std::cout << sched_getcpu() << ": Order " << k << ": ";
          for (int p=0; p < manager->atom_tag_list[k].size(); p++) {
            std::cout << manager->atom_tag_list[k][p] << ", ";
          }
@@ -238,8 +274,7 @@ void PairRASCAL::compute(int eflag, int vflag)
       }
       std::cout << std::endl;
       
-      std::cout << sched_getcpu() << ": " << "rascal manager->neighbours_cluster_index\n";
-      std::cout << sched_getcpu() << ": ";
+      std::cout << sched_getcpu() << ": " << "rascal manager->neighbours_cluster_index: ";
       for (int k=0; k < manager->neighbours_cluster_index.size(); k++) {
          std::cout << manager->neighbours_cluster_index[k] << ", ";
       }
@@ -275,7 +310,7 @@ void PairRASCAL::compute(int eflag, int vflag)
           }
         }
       } else {
-        std::cout << sched_getcpu() << ": " << "inum is 0 therefore we do not print ghost neighbours, because rascal cannot handle it\n";
+        std::cout << sched_getcpu() << ": " << "inum is 0 therefore we do not print ghost neighbours, because rascal cannot handle it" << std::endl;
       }
       std::cout << std::endl;
   }
@@ -307,6 +342,7 @@ void PairRASCAL::compute(int eflag, int vflag)
     std::cout << sched_getcpu() << ": " << "KNM shape " << KNM.rows() << ", " << KNM.cols() << std::endl;
     std::cout << sched_getcpu() << ": " << "weights shape " << weights.rows() << ", " << weights.cols() << std::endl;
   }
+
   // predict energies 
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << sched_getcpu() << ": " << "Compute energies" << std::endl;
@@ -358,9 +394,9 @@ void PairRASCAL::compute(int eflag, int vflag)
 
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << sched_getcpu() << ": " << "Copy forces to lammps" << std::endl;
-  for (ii = 0; ii < nlocal; ii++) {
+  for (ii = 0; ii < inum; ii++) {
      for (jj = 0; jj < 3; jj++) {
-        f[ii][jj] -=  rascal_forces(ii, jj);
+        f[ii][jj] =  -rascal_forces(ii, jj);
      }
   }
 
