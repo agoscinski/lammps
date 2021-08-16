@@ -462,9 +462,31 @@ void PairRASCAL::coeff(int narg, char **arg)
 
   //// begin within rascal (code would be later moved into rascal)
   // here we load model file 
-  json input = rascal::json_io::load(rascal_file);
-  json init_params = input.at("init_params").template get<json>();
-  json X_train = init_params.at("X_train").template get<json>();
+  json input;
+  try {
+    input = rascal::json_io::load(rascal_file);
+  } catch (const std::exception& e) {
+    std::stringstream error{};
+    error << "Error: "
+          << "Loading json failed. "
+          << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
+          << e.what();
+    throw std::runtime_error(error.str());
+  }
+
+  json init_params;
+  json X_train;
+  try {
+    init_params = input.at("init_params").template get<json>();
+    X_train = init_params.at("X_train").template get<json>();
+  } catch (const std::exception& e) {
+    std::stringstream error{};
+    error << "Error: "
+          << "Loading init parameters from json failed. "
+          << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
+          << e.what();
+    throw std::runtime_error(error.str());
+  }
 
   // sparse points
   try {
