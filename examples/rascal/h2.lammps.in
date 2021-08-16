@@ -1,6 +1,6 @@
 # Test of rascal potential for H2 structure
 units		metal
-boundary	p p p
+boundary	f f f
 
 atom_style	atomic
 
@@ -16,15 +16,17 @@ pair_style rascal
 #   info: no additional output to the standard lammps one
 #   debug: prints outputs of the energy and force caluculation of rascal
 #   trace: prints all available information including neighborlist information
-pair_coeff * * debug h2_model.json 1
+pair_coeff * * trace h2_model.json 1
 
 # if you get a bug  with the rascal potential, please check before with some simple
 # potential if the bug does not come from an ill-defined simulation
 #pair_style lj/cut 2.0 # !set cutoff to the same value as your rascal potential
 #pair_coeff * * 1 1
 
+timestep 0.0001
 minimize   1.0e-8 1.0e-8 100 100
 min_style cg
+
 
 dump		        1 all xyz 1 h2_min.lammps.out
 dump_modify     1 first yes sort id element H format line "%s %0.6f %0.6f %0.6f"
