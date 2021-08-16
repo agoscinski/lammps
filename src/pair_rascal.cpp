@@ -244,6 +244,7 @@ void PairRASCAL::compute(int eflag, int vflag)
       // therefore we have to get the information in this "hacky" way
       std::cout << sched_getcpu() << ": " << "rascal lattice:\n" << rascal::extract_underlying_manager<0>(manager)->get_cell() << std::endl;
       std::cout << sched_getcpu() << ": " << "rascal pbc: " << rascal::extract_underlying_manager<0>(manager)->get_periodic_boundary_conditions().transpose() << std::endl;
+      std::cout << sched_getcpu() << ": " << "rascal cell volume: " << rascal::extract_underlying_manager<0>(manager)->get_cell_volume() << std::endl;
       std::cout << sched_getcpu() << ": " << "rascal manager->offsets\n";
       for (int k=0; k < manager->offsets.size(); k++) {
          std::cout << sched_getcpu() << ": ";
@@ -347,6 +348,8 @@ void PairRASCAL::compute(int eflag, int vflag)
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << sched_getcpu() << ": " << "Compute energies" << std::endl;
   rascal::math::Matrix_t rascal_energies = KNM * weights.transpose();
+  //baseline  = ..
+  //energies += baseline;
   if (this->log_level >= RASCAL_LOG::DEBUG) {
     std::cout << sched_getcpu() << ": " << "rascal energies with shape (" << rascal_energies.rows() << ", " << rascal_energies.cols() << "):\n"
               << rascal_energies
@@ -376,19 +379,22 @@ void PairRASCAL::compute(int eflag, int vflag)
     std::cout << sched_getcpu() << ": " << "Compute stress" << std::endl;
   std::string neg_stress_name = rascal::compute_sparse_kernel_neg_stress(
       *calculator, *kernel, managers, sparse_points, weights);
-  //auto rascal_negative_stress = Eigen::Map<const rascal::math::Matrix_t>(
-  //     gradients.view().data(), manager->size(), 3);
   auto && gradients_neg_stress {
       *manager->template get_property<rascal::Property<double, 0, rascal::AdaptorStrict<
       rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>, 6>>(
           neg_stress_name, true)};
+  // TODO(alex) in rascal cpp the stress is divided by volume, but lammps does this later too
+  //            so we undo the division from rascal, this should be properly solved with a
+  //            flag in rascal cpp or by removing it on the cpp side and adding it to the python side
+  gradients_neg_stress(0) *= rascal::extract_underlying_manager<0>(manager)->get_cell_volume();
   // REMINDER(alex) with this it should be copied 
   //rascal::math::Matrix_t rascal_negative_stress
-  auto rascal_negative_stress =
-     Eigen::Map<const rascal::math::Matrix_t>(gradients_neg_stress.view().data(), 6, 1);
+
+  Eigen::Map<const rascal::math::Vector_t> rascal_negative_stress =
+     Eigen::Map<const rascal::math::Vector_t>(gradients_neg_stress.view().data(), 6);
   if (this->log_level >= RASCAL_LOG::DEBUG) {
     std::cout << sched_getcpu() << ": " << "rascal negative_stress with shape (" << rascal_negative_stress.rows() << ", " << rascal_negative_stress.cols() << "):\n"
-              << rascal_negative_stress.transpose()
+              << rascal_negative_stress
               << std::endl;
   }
 
@@ -396,7 +402,7 @@ void PairRASCAL::compute(int eflag, int vflag)
     std::cout << sched_getcpu() << ": " << "Copy forces to lammps" << std::endl;
   for (ii = 0; ii < inum; ii++) {
      for (jj = 0; jj < 3; jj++) {
-        f[ii][jj] =  -rascal_forces(ii, jj);
+        f[ii][jj] = -rascal_forces(ii, jj);
      }
   }
 
@@ -407,11 +413,11 @@ void PairRASCAL::compute(int eflag, int vflag)
   }
   
   // TODO(alex) to obtain per atom properties it requires changes in the prediction interface of rascal
-  //if (eflag_atom) {
-  //  for (ii = 0; ii < ntotal; ii++) {
-  //    eatom[ii] = rascal_energies(0,0)/ntotal;
-  //  }
-  //}
+  if (eflag_atom) {
+    for (ii = 0; ii < ntotal; ii++) {
+      eatom[ii] = rascal_energies(0,0)/ntotal;
+    }
+  }
 
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << sched_getcpu() << ": " << "Copy structure stress to lammps" << std::endl;
