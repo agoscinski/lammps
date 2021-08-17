@@ -389,10 +389,11 @@ void PairRASCAL::compute(int eflag, int vflag)
   // TODO(alex) in rascal cpp the stress is divided by volume, but lammps does this later too
   //            so we undo the division from rascal, this should be properly solved with a
   //            flag in rascal cpp or by removing it on the cpp side and adding it to the python side
-  gradients_neg_stress(0) *= rascal::extract_underlying_manager<0>(manager)->get_cell_volume();
 
   Eigen::Map<const rascal::math::Vector_t> rascal_negative_stress =
      Eigen::Map<const rascal::math::Vector_t>(gradients_neg_stress.view().data(), 6);
+  //rascal_negative_stress(0) *= rascal::extract_underlying_manager<0>(manager)->get_cell_volume();
+
   if (this->log_level >= RASCAL_LOG::DEBUG) {
     std::cout << sched_getcpu() << ": " << "rascal negative_stress with shape (" << rascal_negative_stress.rows() << ", " << rascal_negative_stress.cols() << "):\n"
               << rascal_negative_stress
@@ -420,15 +421,17 @@ void PairRASCAL::compute(int eflag, int vflag)
     }
   }
 
+  // rascal: xx, yy, zz, yz, xz, xy
+  // lammps: xx, yy, zz, xy, xz, yz,
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << sched_getcpu() << ": " << "Copy structure stress to lammps" << std::endl;
   if (vflag_global) {
-      virial[0] = rascal_negative_stress(0);
-      virial[1] = rascal_negative_stress(1);
-      virial[2] = rascal_negative_stress(2);
-      virial[3] = rascal_negative_stress(3);
-      virial[4] = rascal_negative_stress(4);
-      virial[5] = rascal_negative_stress(5);
+      virial[0] = rascal_negative_stress(0) * rascal::extract_underlying_manager<0>(manager)->get_cell_volume();
+      virial[1] = rascal_negative_stress(1) * rascal::extract_underlying_manager<0>(manager)->get_cell_volume();
+      virial[2] = rascal_negative_stress(2) * rascal::extract_underlying_manager<0>(manager)->get_cell_volume();
+      virial[3] = rascal_negative_stress(5) * rascal::extract_underlying_manager<0>(manager)->get_cell_volume();
+      virial[4] = rascal_negative_stress(4) * rascal::extract_underlying_manager<0>(manager)->get_cell_volume();
+      virial[5] = rascal_negative_stress(3) * rascal::extract_underlying_manager<0>(manager)->get_cell_volume();
   }
 
   // TODO(alex) to obtain per atom properties it requires changes in the prediction interface of rascal
