@@ -69,6 +69,7 @@ class PairRASCAL : public Pair {
   rascal::SparsePointsBlockSparse<rascal::CalculatorSphericalInvariants> sparse_points{};
   //std::vector<double> weights_vec{};
   rascal::math::Vector_t weights{};
+  std::map<std::string, double> self_contributions{};
   std::vector<int> rascal_atom_types{}; 
   //std::shared_ptr<rascal::StructureManagerLammps> root_manager{rascal::make_structure_manager<rascal::StructureManagerLammps>()};
   //std::shared_ptr<rascal::StructureManager<rascal::StructureManagerLammps<rascal::AdaptorCenterContribution<rascal::AdaptorStrict>>>>{};

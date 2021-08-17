@@ -13,8 +13,7 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing authors: Albert Bartok (Cambridge University)
-                         Aidan Thompson (Sandia, athomps@sandia.gov)
+   Contributing authors: Alexander Goscinski (alexander.goscinski@epfl.ch)
 ------------------------------------------------------------------------- */
 
 #include "pair_rascal.h"
@@ -348,6 +347,9 @@ void PairRASCAL::compute(int eflag, int vflag)
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << sched_getcpu() << ": " << "Compute energies" << std::endl;
   rascal::math::Matrix_t rascal_energies = KNM * weights.transpose();
+  for (auto center : manager) {
+    rascal_energies(0,0) += self_contributions[std::to_string(center.get_atom_type())];
+  }
   //baseline  = ..
   //energies += baseline;
   if (this->log_level >= RASCAL_LOG::DEBUG) {
@@ -364,6 +366,7 @@ void PairRASCAL::compute(int eflag, int vflag)
   auto && gradients{*manager->template get_property<
       rascal::Property<double, 1, rascal::AdaptorStrict<
       rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>, 1, 3>>(force_name, true)};
+  // REMINDER(alex) with the line below the matrix should be copied 
   //rascal::math::Matrix_t rascal_force = Eigen::Map<const rascal::math::Matrix_t>(
   //     gradients.view().data(), manager->size(), 3);
   auto rascal_forces = Eigen::Map<const rascal::math::Matrix_t>(
@@ -387,8 +390,6 @@ void PairRASCAL::compute(int eflag, int vflag)
   //            so we undo the division from rascal, this should be properly solved with a
   //            flag in rascal cpp or by removing it on the cpp side and adding it to the python side
   gradients_neg_stress(0) *= rascal::extract_underlying_manager<0>(manager)->get_cell_volume();
-  // REMINDER(alex) with this it should be copied 
-  //rascal::math::Matrix_t rascal_negative_stress
 
   Eigen::Map<const rascal::math::Vector_t> rascal_negative_stress =
      Eigen::Map<const rascal::math::Vector_t>(gradients_neg_stress.view().data(), 6);
@@ -569,11 +570,13 @@ void PairRASCAL::coeff(int narg, char **arg)
     json kernel_cpp_params = kernel_data.at("cpp_kernel").template get<json>();
     kernel = std::make_shared<rascal::SparseKernel>(kernel_cpp_params);
   } catch (const std::exception& e) {
-    std::cerr << "Error\n"
-              << "Loading kernel from json failed. "
-              << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
-              << e.what()
-              << std::endl;
+    std::stringstream error{};
+    error << "Error\n"
+          << "Loading kernel from json failed. "
+          << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
+          << e.what()
+          << std::endl;
+    throw std::runtime_error(error.str());
   }
 
   // calculator
@@ -585,12 +588,15 @@ void PairRASCAL::coeff(int narg, char **arg)
     representation_cpp_params = kernel_representation_data.at("cpp_representation").template get<json>();
     calculator = std::make_shared<rascal::CalculatorSphericalInvariants>(representation_cpp_params);
   } catch (const std::exception& e) {
-    std::cerr << "Error\n"
-              << "Loading calculator from json failed. "
-              << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
-              << e.what()
-              << std::endl;
+    std::stringstream error{};
+    error << "Error\n"
+          << "Loading calculator from json failed. "
+          << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
+          << e.what()
+          << std::endl;
+    throw std::runtime_error(error.str());
   }
+  self_contributions = init_params.at("self_contributions").template get<std::map<std::string, double>>();
 
   // weights
   // COMMENT(alex) how weights could be loaded from a std::vector<double>, in this case Eigen provides simplifying utilities
