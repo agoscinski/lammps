@@ -189,6 +189,23 @@ void PairRASCAL::compute(int eflag, int vflag)
   pbc[1] = domain->yperiodic;
   pbc[2] = domain->zperiodic;
 
+
+  if (this->log_level >= RASCAL_LOG::DEBUG) {
+    // COMMENT(alex) in my cases corners contains only zeros, can be probably removed
+    //std::cout << sched_getcpu() << ": " << "domain box corners" << std::endl;
+    //for (int i=0; i < 8 ; i++) {
+    //  std::cout << sched_getcpu() << ": ";
+    //  for (int p=0; p < 3 ; p++) {
+    //    std::cout << domain->corners[i][p] << " ";
+    //  }
+    //  std::cout << std::endl;
+    //}
+    for (int p=0; p < 3 ; p++) {
+    std::cout << sched_getcpu() << ": "
+              << "sublo["<< p << "] " << "subhi["<< p << "] " << domain->sublo[p] << " " << domain->subhi[p] << std::endl;
+    }
+  }
+
   if (this->log_level >= RASCAL_LOG::TRACE) {
     std::cout << sched_getcpu() << ": " << "Lammps lattice: "
               << domain->lattice->a1[0] << ", " << domain->lattice->a1[1] << ", " << domain->lattice->a1[2] << "; "
@@ -241,7 +258,8 @@ void PairRASCAL::compute(int eflag, int vflag)
   if (this->log_level >= RASCAL_LOG::TRACE) {
       // rascal manager/adaptors do not have get_cell method implemented,
       // therefore we have to get the information in this "hacky" way
-      std::cout << sched_getcpu() << ": " << "rascal lattice:\n" << rascal::extract_underlying_manager<0>(manager)->get_cell() << std::endl;
+      // TODO getcpu for lattice
+      std::cout << sched_getcpu() << ": " << "rascal lattice:" << rascal::extract_underlying_manager<0>(manager)->get_cell() << std::endl;
       std::cout << sched_getcpu() << ": " << "rascal pbc: " << rascal::extract_underlying_manager<0>(manager)->get_periodic_boundary_conditions().transpose() << std::endl;
       std::cout << sched_getcpu() << ": " << "rascal cell volume: " << rascal::extract_underlying_manager<0>(manager)->get_cell_volume() << std::endl;
       std::cout << sched_getcpu() << ": " << "rascal manager->offsets\n";
@@ -282,9 +300,9 @@ void PairRASCAL::compute(int eflag, int vflag)
 
       std::cout << sched_getcpu() << ": " << "rascal neighbor list without ghosts\n";
       for (auto atom : manager) {
-          std::cout << sched_getcpu() << ": " << "center atom tag " << atom.get_atom_tag() << ", "
-                    << "cluster index " << atom.get_cluster_index()
-                    << std::endl;
+        std::cout << sched_getcpu() << ": " << "center atom tag " << atom.get_atom_tag() << ", "
+                  << "cluster index " << atom.get_cluster_index()
+                  << std::endl;
         for (auto pair : atom.pairs_with_self_pair()) {
           std::cout << sched_getcpu() << ": " << "  pair (" << atom.get_atom_tag() << ", "
                     << pair.get_atom_tag() << "): " 
@@ -320,13 +338,13 @@ void PairRASCAL::compute(int eflag, int vflag)
   calculator->compute(managers);
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << sched_getcpu() << ": " << "Computed representation." << std::endl;
-  auto && expansions_coefficients{*manager->template get_property<rascal::CalculatorSphericalInvariants::template Property_t<rascal::AdaptorStrict<
-   rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>>>(
-    calculator->get_name())};
  
   // representation vector can be printed if needed but even for trace
   // information it is too large, besides this it usally does not contain
   // information helpful for debugging which you cannot derive from other outputs
+  //auto && expansions_coefficients{*manager->template get_property<rascal::CalculatorSphericalInvariants::template Property_t<rascal::AdaptorStrict<
+  // rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>>>(
+  //  calculator->get_name())};
   //if (this->log_level >= RASCAL_LOG::TRACE) {
   //  for (auto atom : manager) {
   //    std::cout << sched_getcpu() << ": " << expansions_coefficients[atom].get_full_vector().transpose() << std::endl;
@@ -354,7 +372,7 @@ void PairRASCAL::compute(int eflag, int vflag)
   //energies += baseline;
   if (this->log_level >= RASCAL_LOG::DEBUG) {
     std::cout << sched_getcpu() << ": " << "rascal energies with shape (" << rascal_energies.rows() << ", " << rascal_energies.cols() << "):\n"
-              << rascal_energies
+              << sched_getcpu() << ": " <<  rascal_energies
               << std::endl;
   }
 
@@ -372,9 +390,10 @@ void PairRASCAL::compute(int eflag, int vflag)
   auto rascal_forces = Eigen::Map<const rascal::math::Matrix_t>(
        gradients.view().data(), manager->size(), 3);
   if (this->log_level >= RASCAL_LOG::DEBUG) {
-    std::cout << sched_getcpu() << ": " << "rascal forces with shape (" << rascal_forces.rows() << ", " << rascal_forces.cols() << "):\n"
-              << rascal_forces
-              << std::endl;
+    std::cout << sched_getcpu() << ": " << "rascal forces with shape (" << rascal_forces.rows() << ", " << rascal_forces.cols() << "):\n";
+    for (int i=0; i < rascal_forces.rows(); i++) {
+      std::cout << sched_getcpu() << ": " << rascal_forces.row(i) << std::endl;
+    }
   }
 
   // predict stress
@@ -396,7 +415,7 @@ void PairRASCAL::compute(int eflag, int vflag)
 
   if (this->log_level >= RASCAL_LOG::DEBUG) {
     std::cout << sched_getcpu() << ": " << "rascal negative_stress with shape (" << rascal_negative_stress.rows() << ", " << rascal_negative_stress.cols() << "):\n"
-              << rascal_negative_stress
+              << sched_getcpu() << ": " << rascal_negative_stress
               << std::endl;
   }
 
