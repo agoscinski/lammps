@@ -475,32 +475,20 @@ void PairRASCAL::compute(int eflag, int vflag)
 
 void PairRASCAL::settings(int narg, char ** /* arg */)
 {
-  if (this->log_level >= RASCAL_LOG::DEBUG) {
-    std::cout << sched_getcpu() << ": " << "PairRASCAL::settings start" << std::endl;
-  }
   if (narg != 0) error->all(FLERR,"Illegal pair_style command");
 
   if (strcmp("metal",update->unit_style) != 0)
     error->all(FLERR,"Rascal potentials require 'metal' units");
-  if (this->log_level >= RASCAL_LOG::DEBUG) {
-    std::cout << sched_getcpu() << ": " << "PairRASCAL::settings end" << std::endl;
-  }
 }
 
 void PairRASCAL::allocate()
 {
-  if (this->log_level >= RASCAL_LOG::DEBUG) {
-    std::cout << sched_getcpu() << ": " << "PairRASCAL::allocate start" << std::endl;
-  }
   allocated = 1;
   int n = atom->ntypes;
 
   setflag = memory->create(setflag,n+1,n+1,"pair:setflag");
   cutsq = memory->create(cutsq,n+1,n+1,"pair:cutsq");
   map = new int[n+1];
-  if (this->log_level >= RASCAL_LOG::DEBUG) {
-    std::cout << sched_getcpu() << ": " << "PairRASCAL::allocate end" << std::endl;
-  }
 }
 
 // For initialization, gives the input of of pair_coeff
