@@ -125,11 +125,13 @@ file(GLOB ALL_SOURCES ${LAMMPS_SOURCE_DIR}/[^.]*.cpp)
 file(GLOB MAIN_SOURCES ${LAMMPS_SOURCE_DIR}/main.cpp)
 list(REMOVE_ITEM ALL_SOURCES ${MAIN_SOURCES})
 
+# BEGIN
 set(BUILD_BINDINGS OFF)
 set(BUILD_EXAMPLES OFF)
-# BEGIN
 set(CMAKE_CXX_STANDARD 14)
-add_subdirectory("/ssd/local/code/lammps/src/librascal" "LIBRASCAL")
+# see https://stackoverflow.com/a/66342383
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+add_subdirectory("../src/librascal" "LIBRASCAL")
 # END
 
 add_library(lammps ${ALL_SOURCES})
