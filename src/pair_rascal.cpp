@@ -110,13 +110,9 @@ void PairRASCAL::compute(int eflag, int vflag)
   int nghost = atom->nghost;
   int ntotal = nlocal + nghost;
   int *type = atom->type;
-  // TODO(alex) should be properly handeled
-  // tagint can be also int or int64_t depending on compile flags see LAMMPS_BIGBIG
+  // TODO(alex) tagint should be properly handeled
+  //            tagint can be also int or int64_t depending on compile flags see LAMMPS_BIGBIG
   int *tag = atom->tag;
-  //std::cout << sched_getcpu() << ": " << "sizeof(tagint)" << sizeof(tagint) << std::endl;
-  //for (int i{0}; i < ntotal; i++) {
-  //  std::cout << sched_getcpu() << ": " << "atom->tag[i] " << (int) atom->tag[i] << std::endl;
-  //}
 
   double **x = atom->x;
   double **f = atom->f;
@@ -520,8 +516,8 @@ void PairRASCAL::coeff(int narg, char **arg)
   if (strcmp(arg[0],"*") != 0 || strcmp(arg[1],"*") != 0)
     error->all(FLERR,"Incorrect args for pair coefficients");
 
-  if (strcmp(arg[2],"info") == 0) {
-    log_level = RASCAL_LOG::INFO; 
+  if (strcmp(arg[2],"none") == 0) {
+    log_level = RASCAL_LOG::NONE; 
   } else if (strcmp(arg[2],"debug") == 0) {
     log_level = RASCAL_LOG::DEBUG; 
   } else if (strcmp(arg[2],"trace") == 0) {
@@ -624,9 +620,9 @@ void PairRASCAL::coeff(int narg, char **arg)
   // COMMENT(alex) how weights could be loaded from a std::vector<double>, in this case Eigen provides simplifying utilities
   //std::vector<double> weights_vec = init_params.at("weights").template get<json>().at(1).template get<std::vector<double>>();
   //weights = Eigen::Map<rascal::math::Vector_t>(weights_vec.data(), static_cast<long int>(weights_vec.size()));
-  std::vector<std::vector<double>> weights_vec;
+  std::vector<double> weights_vec;
   try {
-    weights_vec = init_params.at("weights").template get<json>().at(1).template get<std::vector<std::vector<double>>>();
+    weights_vec = init_params.at("weights").template get<json>().at(1).template get<std::vector<double>>();
   } catch (const std::exception& e) {
     std::cerr << "Error\n"
               << "Loading weights from json failed. "
@@ -639,16 +635,9 @@ void PairRASCAL::coeff(int narg, char **arg)
               << "In file " << __FILE__ << " (line " << __LINE__ << ")"
               << std::endl;
   }
-  if (1 != weights_vec.at(0).size()) {
-    std::cerr << "The shape of the weights is (" << weights_vec.size() << ", " << weights_vec.at(0).size() << "), "
-              << " but C++ interface does not support multitarget learning. The second dimension must be one."
-              << "In file " << __FILE__ << " (line " << __LINE__ << ")"
-              << std::endl;
-  }
-
   weights = rascal::math::Vector_t(weights_vec.size());
   for (unsigned int i=0; i < weights_vec.size(); i++) {
-    weights(i) = weights_vec[i][0];
+    weights(i) = weights_vec[i];
   }
 
   // cutoff

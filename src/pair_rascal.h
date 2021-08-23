@@ -32,7 +32,7 @@ PairStyle(rascal,PairRASCAL);
 #include "rascal/structure_managers/adaptor_strict.hh"
 #include "rascal/structure_managers/make_structure_manager.hh"
 #include "rascal/structure_managers/structure_manager_collection.hh"
-// I think we don't need this if we import h files
+// COMMENT(alex) I think we don't need this if we import h files
 //extern "C" {
 //int quip_lammps_api_version();
 //void quip_lammps_wrapper(int *, int *, int *, int *, int *, int *, int *, int *, int *, double *,
@@ -42,10 +42,10 @@ PairStyle(rascal,PairRASCAL);
 
 namespace LAMMPS_NS {
 
-// 0 info (no addiditional log to lammps)
+// 0 none (no addiditional log to lammps)
 // 1 debug (force and energy calculation of rascal)
 // 2 trace (neighbourlist of rascal)
-enum class RASCAL_LOG { INFO = 0, DEBUG = 1, TRACE = 2 };
+enum class RASCAL_LOG { NONE = 0, DEBUG = 1, TRACE = 2 };
 
 class PairRASCAL : public Pair {
  public:

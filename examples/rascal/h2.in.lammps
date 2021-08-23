@@ -1,0 +1,36 @@
+# Test of rascal potential for H2 structure
+units metal
+boundary p p p 
+
+atom_style atomic
+
+# lammps sometimes does not include atoms which have the same distance as the cutoff
+# so please use a small skin to avoid this behaviour until we understood this better
+neighbor 0.1 bin
+
+read_data h2.data.lammps
+
+# pair_style rascal
+# pair_coeff * * {RASCAL_LOG_LEVEL} {RASCAL_MODEL_NAME} {ATOM_SPECIES_LIST}
+# RASCAL_LOG_LEVEL = {none|debug|trace}
+#   none: no additional output to the standard lammps one
+#   debug: prints outputs of the energy and force caluculation of rascal
+#   trace: prints all available information including neighborlist information
+# ATOM_TYPE_LIST = list of all atom species in structure file ch4.data.lammps
+#                  (IMPORTANT) sorted ascending according to lammps atom types
+#                  which are set in the h2.data.lammps file
+pair_style rascal
+pair_coeff * * none h2_model.json 1
+
+# if you get a bug with the rascal potential, please check with some simple
+# potential if the bug does not come from an ill-defined simulation
+#pair_style  lj/cut 2.0 # !set cutoff to the same value as your rascal potential
+#pair_coeff  * *  1 0.642
+
+timestep 0.001
+thermo 1
+thermo_style custom step time temp etotal press vol pxx pyy pzz pxy pxz pyz
+
+dump 1 all custom 1 h2.trj.lammps id type xu yu zu fx fy fz
+
+run  0
