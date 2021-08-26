@@ -136,7 +136,7 @@ void PairRASCAL::compute(int eflag, int vflag)
   if (inum == 0) {
     if (this->log_level >= RASCAL_LOG::DEBUG)
       std::cout << sched_getcpu() << ": " << "inum is 0 set forces to zero" << std::endl;
-    for (ii = 0; ii < inum; ii++) {
+    for (ii = 0; ii < ntotal; ii++) {
        for (jj = 0; jj < 3; jj++) {
           f[ii][jj] = 0;
        }
@@ -361,9 +361,14 @@ void PairRASCAL::compute(int eflag, int vflag)
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << sched_getcpu() << ": " << "Compute energies" << std::endl;
   rascal::math::Matrix_t rascal_energies = KNM * weights.transpose();
+  std::cout << "self contribution (atom type, contribution)";
   for (auto center : manager) {
+    if (this->log_level >= RASCAL_LOG::DEBUG) {
+      std::cout << std::to_string(center.get_atom_type()) << " " << self_contributions[std::to_string(center.get_atom_type())] << ", ";
+    }
     rascal_energies(0,0) += self_contributions[std::to_string(center.get_atom_type())];
   }
+  std::cout << std::endl;
   //baseline  = ..
   //energies += baseline;
   if (this->log_level >= RASCAL_LOG::DEBUG) {
@@ -384,7 +389,7 @@ void PairRASCAL::compute(int eflag, int vflag)
   //rascal::math::Matrix_t rascal_force = Eigen::Map<const rascal::math::Matrix_t>(
   //     gradients.view().data(), manager->size(), 3);
   auto rascal_forces = Eigen::Map<const rascal::math::Matrix_t>(
-       gradients.view().data(), manager->size(), 3);
+       gradients.view().data(), manager->size_with_ghosts(), 3);
   if (this->log_level >= RASCAL_LOG::DEBUG) {
     std::cout << sched_getcpu() << ": " << "rascal forces with shape (" << rascal_forces.rows() << ", " << rascal_forces.cols() << "):\n";
     for (int i=0; i < rascal_forces.rows(); i++) {
@@ -417,24 +422,42 @@ void PairRASCAL::compute(int eflag, int vflag)
 
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << sched_getcpu() << ": " << "Copy forces to lammps" << std::endl;
-  for (ii = 0; ii < inum; ii++) {
+  // TODO(alex) for debugging  
+  //if (sched_getcpu() == 1) {
+  //  f[0][0] =  1;
+  //  f[1][0] =  1;
+  //} else {
+  //  f[0][0] =  1;
+  //  f[1][0] = -1;
+  //}
+  // f[0] = p1_f[0] + p2_f[1]
+  // f[1] = p1_f[1] + p2_f[0]
+
+
+  for (ii = 0; ii < ntotal; ii++) {
      for (jj = 0; jj < 3; jj++) {
         f[ii][jj] = -rascal_forces(ii, jj);
      }
   }
 
-  if (this->log_level >= RASCAL_LOG::DEBUG)
+  if (this->log_level >= RASCAL_LOG::DEBUG) {
     std::cout << sched_getcpu() << ": " << "Copy structure energy to lammps" << std::endl;
+    std::cout << sched_getcpu() << ": " << "eflag_global " << eflag_global << std::endl;
+    std::cout << sched_getcpu() << ": " << "eflag_atom " << eflag_atom << std::endl;
+  }
   if (eflag_global) {
     eng_vdwl = rascal_energies(0,0);
   }
-  
-  // TODO(alex) to obtain per atom properties it requires changes in the prediction interface of rascal
-  if (eflag_atom) {
-    for (ii = 0; ii < ntotal; ii++) {
-      eatom[ii] = rascal_energies(0,0)/ntotal;
-    }
+  if (this->log_level >= RASCAL_LOG::DEBUG) {
+    std::cout << sched_getcpu() << ": " << "eng_vdwl " << eng_vdwl << std::endl;
   }
+
+  // TODO(alex) to obtain per atom properties it requires changes in the prediction interface of rascal
+  //if (eflag_atom) {
+  //  for (ii = 0; ii < nlocal; ii++) {
+  //    eatom[ii] = rascal_energies(0,0)/nlocal;
+  //  }
+  //}
 
   // rascal: xx, yy, zz, yz, xz, xy
   // lammps: xx, yy, zz, xy, xz, yz,
@@ -447,6 +470,13 @@ void PairRASCAL::compute(int eflag, int vflag)
       virial[3] = rascal_negative_stress(5) * rascal::extract_underlying_manager<0>(manager)->get_cell_volume();
       virial[4] = rascal_negative_stress(4) * rascal::extract_underlying_manager<0>(manager)->get_cell_volume();
       virial[5] = rascal_negative_stress(3) * rascal::extract_underlying_manager<0>(manager)->get_cell_volume();
+  }
+  if (this->log_level >= RASCAL_LOG::DEBUG) {
+    std::cout << sched_getcpu() << ": vrial ";
+    for (int i{0}; i < 6; i++) {
+       std::cout << virial[i] << " ";
+    }
+    std::cout << std::endl;
   }
 
   // TODO(alex) to obtain per atom properties it requires changes in the prediction interface of rascal
