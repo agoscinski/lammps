@@ -737,7 +737,8 @@ void PairRASCAL::init_style()
 {
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << "CPU" << sched_getcpu() << ": " << "PairRASCAL::init_style start" << std::endl;
-
+  if (neighbor->skin == 0)
+    error->all(FLERR,"Pair style rascal requires nonzero skin. Otherwise atoms at the cutoff might be not considered.");
 
   if (eflag_atom)
     error->universe_warn(FLERR, "Pair style rascal does not support eflag_atom on. Atomic energy is set to zero.");
