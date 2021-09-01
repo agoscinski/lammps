@@ -17,7 +17,9 @@
 ------------------------------------------------------------------------- */
 
 #include "pair_rascal.h"
+// for debugging
 #include <sched.h>
+#include <limits>
 
 #include "atom.h"
 #include "comm.h"
@@ -37,7 +39,6 @@
 #include "rascal/models/sparse_kernel_predict.hh"
 
 #include "rascal/utils/json_io.hh"
-
 
 using namespace LAMMPS_NS;
 
@@ -95,6 +96,8 @@ PairRASCAL::~PairRASCAL()
 
 void PairRASCAL::compute(int eflag, int vflag)
 {
+  Eigen::IOFormat HeavyFmt(Eigen::FullPrecision, 0, ", ", ";\n", "[", "]", "[", "]");
+  std::cout.precision(std::numeric_limits<double>::max_digits10);
 
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << "CPU" << sched_getcpu() << ": " << "PairRASCAL::compute start" << std::endl;
@@ -369,7 +372,7 @@ void PairRASCAL::compute(int eflag, int vflag)
     std::cout << "CPU" << sched_getcpu() << ": " << "Compute energies" << std::endl;
   rascal::math::Matrix_t rascal_energies = KNM * weights.transpose();
   if (this->log_level >= RASCAL_LOG::DEBUG) {
-    std::cout << "CPU" << sched_getcpu() << ": " << "rascal structure energy without self contribution " <<  rascal_energies
+    std::cout << "CPU" << sched_getcpu() << ": " << "rascal structure energy without self contribution " <<  rascal_energies.format(HeavyFmt)
               << std::endl;
     std::cout << "CPU" << sched_getcpu() << ": " << "self contribution (atom type, contribution) ";
   }
@@ -381,7 +384,7 @@ void PairRASCAL::compute(int eflag, int vflag)
   }
   if (this->log_level >= RASCAL_LOG::DEBUG) {
     std::cout << std::endl;
-    std::cout << "CPU" << sched_getcpu() << ": " << "rascal structure energy with self contribution " <<  rascal_energies
+    std::cout << "CPU" << sched_getcpu() << ": " << "rascal structure energy with self contribution " <<  rascal_energies.format(HeavyFmt)
               << std::endl;
   }
 
@@ -389,7 +392,7 @@ void PairRASCAL::compute(int eflag, int vflag)
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << "CPU" << sched_getcpu() << ": " << "Compute forces" << std::endl;
   std::string force_name = rascal::compute_sparse_kernel_gradients(
-          *calculator, *kernel, managers, sparse_points, weights);
+          *calculator, *kernel, managers, sparse_points, weights, true);
   auto && gradients{*manager->template get_property<
       rascal::Property<double, 1, rascal::AdaptorStrict<
       rascal::AdaptorCenterContribution<rascal::StructureManagerLammps>>, 1, 3>>(force_name, true)};
@@ -459,7 +462,6 @@ void PairRASCAL::compute(int eflag, int vflag)
   if (this->log_level >= RASCAL_LOG::DEBUG) {
     std::cout << "CPU" << sched_getcpu() << ": " << "eng_vdwl " << eng_vdwl << std::endl;
   }
-
   // TODO(alex) to obtain per atom properties it requires changes in the prediction interface of rascal
   //if (eflag_atom) {
   //  for (ii = 0; ii < nlocal; ii++) {
@@ -468,7 +470,7 @@ void PairRASCAL::compute(int eflag, int vflag)
   //}
 
   // rascal: xx, yy, zz, yz, xz, xy
-  // lammps: xx, yy, zz, xy, xz, yz,
+  // lammps: xx, yy, zz, xy, xz, yz, (see pair.h)
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << "CPU" << sched_getcpu() << ": " << "Copy structure stress to lammps" << std::endl;
   if (vflag_global) {
@@ -584,17 +586,28 @@ void PairRASCAL::coeff(int narg, char **arg)
   }
 
   json init_params;
-  json X_train;
   try {
     init_params = input.at("init_params").template get<json>();
+  } catch (const std::exception& e) {
+    error->all(FLERR,"Pair style rascal failed to load init parameters from model json file.");
+    //std::stringstream error{};
+    //error << "Error: "
+    //      << "Loading init parameters from json failed. "
+    //      << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
+    //      << e.what();
+    //throw std::runtime_error(error.str());
+  }
+  json X_train;
+  try {
     X_train = init_params.at("X_train").template get<json>();
   } catch (const std::exception& e) {
-    std::stringstream error{};
-    error << "Error: "
-          << "Loading init parameters from json failed. "
-          << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
-          << e.what();
-    throw std::runtime_error(error.str());
+    error->all(FLERR,"Pair style rascal failed to load traning set from model json file.");
+    //std::stringstream error{};
+    //error << "Error: "
+    //      << "Loading training set from json failed. "
+    //      << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
+    //      << e.what();
+    //throw std::runtime_error(error.str());
   }
 
   // sparse points
@@ -604,12 +617,13 @@ void PairRASCAL::coeff(int narg, char **arg)
     //sparse_points = rascal::SparsePointsBlockSparse<rascal::CalculatorSphericalInvariants>();
     rascal::from_json(sparse_input, sparse_points);
   } catch (const std::exception& e) {
-    std::stringstream error{};
-    error << "Error: "
-          << "Loading sparse points from json failed. "
-          << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
-          << e.what();
-    throw std::runtime_error(error.str());
+    error->all(FLERR,"Pair style rascal failed to load sparse points from model json file.");
+    //std::stringstream error{};
+    //error << "Error: "
+    //      << "Loading sparse points from json failed. "
+    //      << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
+    //      << e.what();
+    //throw std::runtime_error(error.str());
   }
 
   // kernel
@@ -620,13 +634,14 @@ void PairRASCAL::coeff(int narg, char **arg)
     json kernel_cpp_params = kernel_data.at("cpp_kernel").template get<json>();
     kernel = std::make_shared<rascal::SparseKernel>(kernel_cpp_params);
   } catch (const std::exception& e) {
-    std::stringstream error{};
-    error << "Error\n"
-          << "Loading kernel from json failed. "
-          << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
-          << e.what()
-          << std::endl;
-    throw std::runtime_error(error.str());
+    error->all(FLERR,"Pair style rascal failed to load kernel from model json file.");
+    //std::stringstream error{};
+    //error << "Error\n"
+    //      << "Loading kernel from json failed. "
+    //      << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
+    //      << e.what()
+    //      << std::endl;
+    //throw std::runtime_error(error.str());
   }
 
   // calculator
@@ -638,13 +653,14 @@ void PairRASCAL::coeff(int narg, char **arg)
     representation_cpp_params = kernel_representation_data.at("cpp_representation").template get<json>();
     calculator = std::make_shared<rascal::CalculatorSphericalInvariants>(representation_cpp_params);
   } catch (const std::exception& e) {
-    std::stringstream error{};
-    error << "Error\n"
-          << "Loading calculator from json failed. "
-          << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
-          << e.what()
-          << std::endl;
-    throw std::runtime_error(error.str());
+    error->all(FLERR,"Pair style rascal failed to load calculator from model json file.");
+    //std::stringstream error{};
+    //error << "Error\n"
+    //      << "Loading calculator from json failed. "
+    //      << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
+    //      << e.what()
+    //      << std::endl;
+    //throw std::runtime_error(error.str());
   }
   self_contributions = init_params.at("self_contributions").template get<std::map<std::string, double>>();
 
@@ -656,16 +672,18 @@ void PairRASCAL::coeff(int narg, char **arg)
   try {
     weights_vec = init_params.at("weights").template get<json>().at(1).template get<std::vector<double>>();
   } catch (const std::exception& e) {
-    std::cerr << "Error\n"
-              << "Loading weights from json failed. "
-              << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
-              << e.what()
-              << std::endl;
+    error->all(FLERR,"Pair style rascal failed to load weights from model json file.");
+    //std::cerr << "Error\n"
+    //          << "Loading weights from json failed. "
+    //          << "In file " << __FILE__ << " (line " << __LINE__ << ")\n"
+    //          << e.what()
+    //          << std::endl;
   }
   if (sparse_points.size() != weights_vec.size()) {
-    std::cerr << "weight size and sparse_points size disagree "
-              << "In file " << __FILE__ << " (line " << __LINE__ << ")"
-              << std::endl;
+    error->all(FLERR,"In rascal model json file weight size and sparse_points size disagree.");
+    //std::cerr << "weight size and sparse_points size disagree "
+    //          << "In file " << __FILE__ << " (line " << __LINE__ << ")"
+    //          << std::endl;
   }
   weights = rascal::math::Vector_t(weights_vec.size());
   for (unsigned int i=0; i < weights_vec.size(); i++) {
@@ -719,6 +737,13 @@ void PairRASCAL::init_style()
 {
   if (this->log_level >= RASCAL_LOG::DEBUG)
     std::cout << "CPU" << sched_getcpu() << ": " << "PairRASCAL::init_style start" << std::endl;
+
+
+  if (eflag_atom)
+    error->universe_warn(FLERR, "Pair style rascal does not support eflag_atom on. Atomic energy is set to zero.");
+  if (vflag_atom)
+    error->universe_warn(FLERR, "Pair style rascal does not support vflag_atom on. Atomic virial is set to zero.");
+
   // COMMENT(alex) Copy from quip, I am not sure yet how this work.
   //               My guess is that it is not necessary putting does
   //               not require extra MPI communication so they enforce it to set off 
@@ -727,12 +752,11 @@ void PairRASCAL::init_style()
 
   // Initialise neighbor list
   int irequest_full = neighbor->request(this);
-  // COMMENT(alex) could be generalized to support both types but I don't know if people need this
   if (neighbor->requests[irequest_full]->full) {
-    std::cout << "CPU" << sched_getcpu() << ": " << "WARNING: Found request for half neighborlist, but rascal pair "
-                 "potential only works with full neighborlist. Setting "
-                 "it to full neighborlist."
-              << std::endl;
+   error->universe_warn(FLERR, 
+     "Found request for half neighborlist, but rascal "
+     "pair potential only works with full neighborlist. Setting "
+     "request to full neighborlist.");
   }
   neighbor->requests[irequest_full]->half = 0;
   neighbor->requests[irequest_full]->full = 1;
