@@ -124,7 +124,31 @@ include(GNUInstallDirs)
 file(GLOB ALL_SOURCES ${LAMMPS_SOURCE_DIR}/[^.]*.cpp)
 file(GLOB MAIN_SOURCES ${LAMMPS_SOURCE_DIR}/main.cpp)
 list(REMOVE_ITEM ALL_SOURCES ${MAIN_SOURCES})
+
+# BEGIN
+set(BUILD_BINDINGS OFF)
+set(BUILD_EXAMPLES OFF)
+set(CMAKE_CXX_STANDARD 14)
+# see https://stackoverflow.com/a/66342383
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+add_subdirectory("../src/librascal" "LIBRASCAL")
+# END
+
 add_library(lammps ${ALL_SOURCES})
+
+# BEGIN
+# set the name of the c++ libraries
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR
+    CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+  set(LIBRASCAL_NAME "rascal-dbg")
+  set(WIGXJPF_NAME "wigxjpf-dbg")
+else()
+  set(LIBRASCAL_NAME "rascal")
+  set(WIGXJPF_NAME "wigxjpfo")
+endif()
+target_link_libraries(lammps PRIVATE ${LIBRASCAL_NAME})
+# END
+
 
 # tell CMake to export all symbols to a .dll on Windows with MinGW cross-compilers
 if(BUILD_SHARED_LIBS AND (CMAKE_SYSTEM_NAME STREQUAL "Windows") AND CMAKE_CROSSCOMPILING)
