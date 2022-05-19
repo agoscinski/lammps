@@ -16,6 +16,9 @@
    Contributing author: Michele Ceriotti (EPFL), Axel Kohlmeyer (Temple U)
 ------------------------------------------------------------------------- */
 
+#include <cstring>
+#include <iostream>
+
 #include "fix_ipi.h"
 
 #include <cstring>
@@ -408,15 +411,40 @@ void FixIPI::final_integrate()
   char retstr[1024];
 
   // conversions from LAMMPS units to atomic units, which are used by i-PI
+
+  // original
   potconv=3.1668152e-06/force->boltz;
+  //std::cout.unsetf ( std::ios::floatfield );
+  //std::cout.precision(90);
+  //std::cout << "potconv: " << potconv << std::endl;
+  // 1/Hartree ase 3.21.1
+  //potconv=1/27.211386024367243;
+  // ipi python electronvolt
+  //potconv=0.036749326;
+
+  // original
   posconv=0.52917721*force->angstrom;
+  // ipi python angstrom
+  //posconv=1.8897261;
+
   posconv3=posconv*posconv*posconv;
+
+  // original
   forceconv=potconv*posconv;
+  // ipi python ev/ang
+  //forceconv = 0.019446904;
+  
+  // original 3.3989315423291452e-09 for metal units
   pressconv=1/force->nktv2p*potconv*posconv3;
+  //std::cout << "original pressconv " << pressconv << std::endl;
+  // ipi python bar
+  //pressconv=3.398827377e-9;
 
   // compute for potential energy
   pot=modify->compute[modify->find_compute("thermo_pe")]->compute_scalar();
+  //std::cout << "LAMMPS: pot before conversion " << pot << std::endl;
   pot*=potconv;
+  //std::cout << "LAMMPS: pot after conversion " << pot << std::endl;
 
   // probably useless check
   if (!hasdata)
@@ -444,7 +472,6 @@ void FixIPI::final_integrate()
   Compute* comp_p = modify->compute[press_id];
   comp_p->compute_vector();
   double myvol = domain->xprd*domain->yprd*domain->zprd/posconv3;
-
   vir[0] = comp_p->vector[0]*pressconv*myvol;
   vir[4] = comp_p->vector[1]*pressconv*myvol;
   vir[8] = comp_p->vector[2]*pressconv*myvol;

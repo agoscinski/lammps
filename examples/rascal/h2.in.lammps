@@ -1,12 +1,12 @@
 # Test of rascal potential for H2 structure
 units metal
-boundary p p p 
+boundary p p p
 
 atom_style atomic
 
 # lammps sometimes does not include atoms which have the same distance as the cutoff
 # so please use a small skin to avoid this behaviour until we understood this better
-neighbor 0.1 bin
+neighbor 0.0 bin
 
 read_data h2.data.lammps
 
@@ -30,7 +30,9 @@ pair_coeff * * none h2_model.json 1
 timestep 0.001
 thermo 1
 thermo_style custom step time temp etotal press vol pxx pyy pzz pxy pxz pyz
+fix 1 all nve
 
-dump 1 all custom 1 h2.trj.lammps id type xu yu zu fx fy fz
 
-run  0
+dump 1 all custom 1 h2_n2.trj.lammps id type xu yu zu fx fy fz
+
+run  1
